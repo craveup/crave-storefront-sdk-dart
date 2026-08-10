@@ -4,7 +4,7 @@ version: 0.1.0
 homepage: https://www.craveup.com
 repository: https://github.com/craveup/crave-storefront-sdk-dart
 issue_tracker: https://github.com/craveup/crave-storefront-sdk-dart/issues
-documentation: https://docs.cravejs.com
+documentation: https://github.com/craveup/crave-storefront-sdk-dart#readme
 topics:
   - flutter
   - dart

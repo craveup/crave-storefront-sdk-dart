@@ -1,0 +1,111 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dart:
+    name: Dart ${{ matrix.sdk }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        sdk:
+          - '3.4.4'
+          - stable
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@65eb853c7ba17dde3be364c3d2858773e7144260 # v1.7.2
+        with:
+          sdk: ${{ matrix.sdk }}
+      - name: Resolve dependencies
+        run: dart pub get
+      - name: Check formatting
+        if: matrix.sdk == 'stable'
+        run: dart format --output=none --set-exit-if-changed .
+      - name: Analyze
+        run: dart analyze --fatal-infos
+      - name: Test
+        run: dart test
+      - name: Verify the external example and platform-neutral web runtime
+        if: matrix.sdk == 'stable'
+        run: ./tool/verify_web.sh
+      - name: Generate documentation
+        if: matrix.sdk == 'stable'
+        run: dart doc --output=/tmp/crave_storefront_sdk_docs
+      - name: Review dependency freshness
+        if: matrix.sdk == 'stable'
+        run: dart pub outdated --no-dependency-overrides
+      - name: Check for credential material
+        if: matrix.sdk == 'stable'
+        run: ./tool/check_secrets.sh
+      - name: Install pana
+        if: matrix.sdk == 'stable'
+        run: dart pub global activate pana 0.23.17
+      - name: Check pub.dev quality
+        if: matrix.sdk == 'stable'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_EVENT_NAME}" = 'pull_request' ]; then
+            # Pana cannot verify repository metadata until this package exists
+            # on the repository default branch.
+            pana --no-warning --exit-code-threshold=10 .
+          else
+            pana --no-warning --exit-code-threshold=0 .
+          fi
+      - name: Check package inventory
+        if: matrix.sdk == 'stable'
+        run: dart pub publish --dry-run
+
+  flutter-consumer:
+    name: Flutter stable consumer
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Set up Flutter
+        uses: subosito/flutter-action@fd55f4c5af5b953cc57a2be44cb082c8f6635e8e # v2.21.0
+        with:
+          channel: stable
+          cache: true
+      - name: Resolve consumer dependencies
+        working-directory: tool/flutter_consumer
+        run: flutter pub get
+      - name: Analyze consumer
+        working-directory: tool/flutter_consumer
+        run: flutter analyze
+      - name: Test consumer
+        working-directory: tool/flutter_consumer
+        run: flutter test
+
+  dependency-review:
+    name: Dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Review dependency changes
+        uses: actions/dependency-review-action@3c4e3dcb1aa7874d2c16be7d79418e9b7efd6261 # v4.8.2
+        with:
+          fail-on-severity: moderate

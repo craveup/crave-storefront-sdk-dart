@@ -1,0 +1,17 @@
+name: crave_storefront_sdk_flutter_consumer
+description: Disposable compile fixture for crave_storefront_sdk.
+publish_to: none
+version: 0.0.0
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+
+dependencies:
+  crave_storefront_sdk:
+    path: ../..
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
