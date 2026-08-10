@@ -1,0 +1,45 @@
+{
+  "quote": {
+    "enabled": true,
+    "available": true,
+    "pointsToEarn": 25.5,
+    "balance": {"posted": 100.5, "available": 80.25, "reserved": 20.25},
+    "rewards": [
+      {
+        "id": "reward_01",
+        "name": "$5 off",
+        "status": "future_status",
+        "unavailableReasons": null,
+        "pointsCost": 50.5,
+        "amountOff": 5,
+        "redeemable": true
+      }
+    ],
+    "appliedRewardId": null
+  },
+  "ledger": {
+    "enabled": true,
+    "balances": [
+      {
+        "unit": "points",
+        "label": "Points",
+        "posted": 100.5,
+        "reserved": 20.25,
+        "available": 80.25,
+        "asOf": "2026-08-10T12:00:00.000Z"
+      }
+    ],
+    "entries": [
+      {
+        "operation": "earn",
+        "amount": 25.5,
+        "unit": "points",
+        "classification": "purchase",
+        "orderReference": "A100",
+        "expiresAt": null,
+        "occurredAt": "2026-08-10T12:00:00.000Z"
+      }
+    ],
+    "nextCursor": null
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "id": "location_01",
+  "restaurantSlug": "example-tea-downtown",
+  "restaurantDisplayName": "Example Tea Downtown",
+  "restaurantBio": null,
+  "coverPhoto": null,
+  "restaurantLogo": "https://cdn.example.test/location-logo.png",
+  "addressData": {
+    "street": "100 Example Street",
+    "streetOptional": null,
+    "city": "Example City",
+    "state": "NY",
+    "zipCode": "10001",
+    "country": "US",
+    "lat": 40.7128,
+    "lng": -74.006
+  },
+  "addressString": "100 Example Street, Example City"
+}
