@@ -712,11 +712,7 @@ final class ValidateCartCustomerRequest {
     this.phoneNumber,
   }) {
     if (customerName.trim().isEmpty) {
-      throw ArgumentError.value(
-        customerName,
-        'customerName',
-        'Must not be empty.',
-      );
+      throw ArgumentError('customerName must not be empty.');
     }
     if (emailAddress == null && phoneNumber == null) {
       throw ArgumentError(
@@ -842,15 +838,11 @@ final class AddCartItemRequest {
     this.categoryId,
   }) : selections = List<SelectedModifierGroup>.unmodifiable(selections) {
     if (productId.isEmpty) {
-      throw ArgumentError.value(productId, 'productId', 'Must not be empty.');
+      throw ArgumentError('productId must not be empty.');
     }
     _validateQuantity(quantity);
     if (selections.length > 50) {
-      throw ArgumentError.value(
-        selections.length,
-        'selections',
-        'Must contain at most 50 groups.',
-      );
+      throw ArgumentError('selections must contain at most 50 groups.');
     }
   }
 
@@ -891,11 +883,7 @@ final class UpdateCartItemQuantityRequest {
   /// Creates a validated quantity request.
   UpdateCartItemQuantityRequest({required this.quantity}) {
     if (quantity < 0 || quantity > 99) {
-      throw ArgumentError.value(
-        quantity,
-        'quantity',
-        'Must be between 0 and 99.',
-      );
+      throw ArgumentError('quantity must be between 0 and 99.');
     }
   }
 
@@ -920,10 +908,6 @@ final class ApplyDiscountRequest {
 
 void _validateQuantity(int quantity) {
   if (quantity < 1 || quantity > 99) {
-    throw ArgumentError.value(
-      quantity,
-      'quantity',
-      'Must be between 1 and 99.',
-    );
+    throw ArgumentError('quantity must be between 1 and 99.');
   }
 }

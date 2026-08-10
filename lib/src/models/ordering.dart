@@ -42,6 +42,7 @@ final class StartOrderingSessionRequest {
             : freezeJsonMap(metadata, context: 'orderingSession.metadata'),
         _includeExistingCartId = existingCartId != null {
     _validateReturnUrl(returnUrl);
+    _validateMetadata(this.metadata);
   }
 
   /// Creates a request that explicitly asks the server not to resume a cart.
@@ -57,6 +58,7 @@ final class StartOrderingSessionRequest {
             : freezeJsonMap(metadata, context: 'orderingSession.metadata'),
         _includeExistingCartId = true {
     _validateReturnUrl(returnUrl);
+    _validateMetadata(this.metadata);
   }
 
   /// Requested fulfillment method.
@@ -90,9 +92,34 @@ final class StartOrderingSessionRequest {
       };
 }
 
+void _validateMetadata(Map<String, Object?>? metadata) {
+  if (metadata?.containsKey('returnUrl') ?? false) {
+    throw ArgumentError(
+      'metadata.returnUrl is reserved; use the top-level returnUrl field.',
+    );
+  }
+}
+
 void _validateReturnUrl(Uri? returnUrl) {
-  if (returnUrl != null && !returnUrl.isAbsolute) {
-    throw ArgumentError('returnUrl must be an absolute URL.');
+  if (returnUrl == null) {
+    return;
+  }
+  const reservedSchemes = <String>{
+    'blob',
+    'data',
+    'file',
+    'javascript',
+  };
+  final scheme = returnUrl.scheme.toLowerCase();
+  final validWebHost =
+      (scheme != 'http' && scheme != 'https') || returnUrl.host.isNotEmpty;
+  if (!returnUrl.isAbsolute ||
+      !validWebHost ||
+      reservedSchemes.contains(scheme) ||
+      returnUrl.toString().length > 2048) {
+    throw ArgumentError(
+      'returnUrl must be an allowed absolute URL of at most 2048 characters.',
+    );
   }
 }
 

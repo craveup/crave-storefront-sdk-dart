@@ -1,4 +1,5 @@
 import '../json/json_reader.dart';
+import '../origin.dart';
 import 'cart.dart';
 import 'customer.dart';
 
@@ -14,9 +15,7 @@ final class CheckoutHandoff {
   factory CheckoutHandoff.fromJson(Map<String, Object?> json) {
     final reader = JsonReader.fromObject(json, context: 'checkoutHandoff');
     final checkoutUrl = Uri.tryParse(reader.string('checkoutUrl'));
-    if (checkoutUrl == null ||
-        !checkoutUrl.isAbsolute ||
-        checkoutUrl.host.isEmpty) {
+    if (checkoutUrl == null || !isSecureStorefrontWebUri(checkoutUrl)) {
       throw const FormatException(
         'Invalid JSON at checkoutHandoff.checkoutUrl: expected an absolute URL.',
       );

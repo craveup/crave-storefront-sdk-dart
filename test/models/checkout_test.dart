@@ -40,6 +40,16 @@ void main() {
       expect(payment.clientSecret, 'fixture-client-secret');
     });
 
+    test('rejects an insecure remote checkout URL', () {
+      expect(
+        () => CheckoutHandoff.fromJson(const <String, Object?>{
+          'checkoutUrl': 'http://checkout.example.test/session',
+          'expiresAt': '2026-08-10T12:30:00.000Z',
+        }),
+        throwsFormatException,
+      );
+    });
+
     test('decodes every known order-result state', () {
       expect(
         OrderResult.fromJson(<String, Object?>{'state': 'payment_pending'}),

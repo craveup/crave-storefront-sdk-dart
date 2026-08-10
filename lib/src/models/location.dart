@@ -79,10 +79,10 @@ final class DistanceRequest {
     this.unit = DistanceUnit.miles,
   }) {
     if (!lat.isFinite || lat < -90 || lat > 90) {
-      throw ArgumentError.value(lat, 'lat', 'Must be between -90 and 90.');
+      throw ArgumentError('lat must be between -90 and 90.');
     }
     if (!lng.isFinite || lng < -180 || lng > 180) {
-      throw ArgumentError.value(lng, 'lng', 'Must be between -180 and 180.');
+      throw ArgumentError('lng must be between -180 and 180.');
     }
   }
 

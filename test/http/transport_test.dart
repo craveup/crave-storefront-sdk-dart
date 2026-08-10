@@ -209,6 +209,39 @@ void main() {
       transport.close();
     });
 
+    test('rejects malformed credential headers before network I/O', () async {
+      const malicious = 'token\r\nx-injected: private-value';
+      var requestCount = 0;
+      final transport = StorefrontTransport(
+        baseUri: Uri.parse('https://api.example.test'),
+        customerTokenProvider: () async => malicious,
+        client: MockClient((_) async {
+          requestCount += 1;
+          return http.Response('{}', 200);
+        }),
+      );
+
+      await expectLater(
+        transport.send<Map<String, Object?>>(
+          method: 'GET',
+          pathSegments: const ['customer'],
+          routeTemplate: '/customer',
+          authorization: StorefrontAuthorization.customer,
+          decoder: _mapDecoder,
+        ),
+        throwsA(
+          isA<StorefrontConfigurationException>().having(
+            (error) => error.toString(),
+            'safe string',
+            isNot(contains(malicious)),
+          ),
+        ),
+      );
+
+      expect(requestCount, 0);
+      transport.close();
+    });
+
     test('keeps each capability in its dedicated header', () async {
       final captured = <http.Request>[];
       final transport = StorefrontTransport(

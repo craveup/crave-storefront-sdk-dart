@@ -56,5 +56,19 @@ void main() {
       expect(result.distance.unit, 'leagues');
       expect(result.distance.miles, 1.2);
     });
+
+    test('request validation errors do not retain rejected coordinates', () {
+      const rejected = 98765.4321;
+      Object? failure;
+
+      try {
+        DistanceRequest(lat: rejected, lng: -74);
+      } on Object catch (error) {
+        failure = error;
+      }
+
+      expect(failure, isA<ArgumentError>());
+      expect(failure.toString(), isNot(contains('$rejected')));
+    });
   });
 }

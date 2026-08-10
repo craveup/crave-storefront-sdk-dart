@@ -1,24 +1,18 @@
+import '../origin.dart';
+
 /// Unambiguous storage boundary for one merchant location.
 final class StorefrontSessionScope {
   /// Creates an API-origin, merchant, and location storage scope.
   StorefrontSessionScope({
-    required this.apiOrigin,
+    required Uri apiOrigin,
     required this.merchantSlug,
     required this.locationId,
-  }) {
-    if (!apiOrigin.hasScheme || apiOrigin.host.isEmpty) {
-      throw ArgumentError.value(
-          apiOrigin, 'apiOrigin', 'must be an origin URI');
-    }
+  }) : apiOrigin = normalizeStorefrontOrigin(apiOrigin) {
     if (merchantSlug.trim().isEmpty) {
-      throw ArgumentError.value(
-        merchantSlug,
-        'merchantSlug',
-        'must not be empty',
-      );
+      throw ArgumentError('merchantSlug must not be empty.');
     }
     if (locationId.trim().isEmpty) {
-      throw ArgumentError.value(locationId, 'locationId', 'must not be empty');
+      throw ArgumentError('locationId must not be empty.');
     }
   }
 
@@ -57,17 +51,13 @@ final class StorefrontCartSession {
     this.expiresAt,
   }) {
     if (cartId.trim().isEmpty) {
-      throw ArgumentError.value(cartId, 'cartId', 'must not be empty');
+      throw ArgumentError('cartId must not be empty.');
     }
     if (revision < 0) {
-      throw ArgumentError.value(revision, 'revision', 'must not be negative');
+      throw ArgumentError('revision must not be negative.');
     }
     if (accessToken != null && accessToken!.trim().isEmpty) {
-      throw ArgumentError.value(
-        accessToken,
-        'accessToken',
-        'must be null or non-empty',
-      );
+      throw ArgumentError('accessToken must be null or non-empty.');
     }
   }
 

@@ -19,7 +19,7 @@ final class StorefrontIdempotencyKeyGenerator {
 
   final Random _random;
 
-  /// Returns a new 147-character-safe key.
+  /// Returns a new key containing only characters accepted by the API.
   String next() {
     final bytes = List<int>.generate(18, (_) => _random.nextInt(256));
     return 'sf_${base64Url.encode(bytes).replaceAll('=', '')}';

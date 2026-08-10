@@ -478,13 +478,11 @@ final class SelectedModifierGroup {
           selectedOptions,
         ) {
     if (groupId.isEmpty) {
-      throw ArgumentError.value(groupId, 'groupId', 'Must not be empty.');
+      throw ArgumentError('groupId must not be empty.');
     }
     if (selectedOptions.isEmpty || selectedOptions.length > 50) {
-      throw ArgumentError.value(
-        selectedOptions.length,
-        'selectedOptions',
-        'Must contain between 1 and 50 options.',
+      throw ArgumentError(
+        'selectedOptions must contain between 1 and 50 options.',
       );
     }
   }
@@ -513,21 +511,13 @@ final class SelectedModifierOption {
     List<SelectedModifierGroup> children = const <SelectedModifierGroup>[],
   }) : children = List<SelectedModifierGroup>.unmodifiable(children) {
     if (optionId.isEmpty) {
-      throw ArgumentError.value(optionId, 'optionId', 'Must not be empty.');
+      throw ArgumentError('optionId must not be empty.');
     }
     if (quantity < 1 || quantity > 99) {
-      throw ArgumentError.value(
-        quantity,
-        'quantity',
-        'Must be between 1 and 99.',
-      );
+      throw ArgumentError('quantity must be between 1 and 99.');
     }
     if (children.length > 20) {
-      throw ArgumentError.value(
-        children.length,
-        'children',
-        'Must contain at most 20 groups.',
-      );
+      throw ArgumentError('children must contain at most 20 groups.');
     }
   }
 

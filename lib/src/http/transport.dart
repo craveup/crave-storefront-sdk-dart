@@ -6,10 +6,12 @@ import 'package:http/http.dart' as http;
 import '../auth.dart';
 import '../cancellation.dart';
 import '../errors.dart';
+import '../origin.dart';
 
 const _apiPath = <String>['api', 'v1', 'storefront'];
 const _defaultTimeout = Duration(seconds: 10);
 final _idempotencyKeyPattern = RegExp(r'^[A-Za-z0-9._:-]{16,128}$');
+final _credentialHeaderPattern = RegExp(r'^[\x21-\x7e]+$');
 
 /// Determines which narrowly scoped credential a request may use.
 enum StorefrontAuthorization {
@@ -85,7 +87,7 @@ final class StorefrontTransport {
     http.Client? client,
     this.customerTokenProvider,
     this.defaultTimeout = _defaultTimeout,
-  })  : baseUri = _normalizeBaseUri(baseUri),
+  })  : baseUri = normalizeStorefrontOrigin(baseUri),
         _client = client ?? http.Client(),
         _ownsClient = client == null {
     if (defaultTimeout <= Duration.zero) {
@@ -306,16 +308,29 @@ final class StorefrontTransport {
     required String? checkoutHandoffToken,
     required String? receiptToken,
   }) async {
+    String? optionalCredential(String? value, String description) {
+      if (value == null || value.trim().isEmpty) {
+        return null;
+      }
+      if (value.length > 8192 || !_credentialHeaderPattern.hasMatch(value)) {
+        throw StorefrontConfigurationException(
+          '$description has an invalid header format.',
+        );
+      }
+      return value;
+    }
+
     Future<String?> customerToken() async {
       final token = await customerTokenProvider?.call();
-      return token == null || token.trim().isEmpty ? null : token;
+      return optionalCredential(token, 'The customer token');
     }
 
     void requireHeader(String name, String? value, String description) {
-      if (value == null || value.trim().isEmpty) {
+      final credential = optionalCredential(value, description);
+      if (credential == null) {
         throw StorefrontConfigurationException('$description is required.');
       }
-      request.headers[name] = value;
+      request.headers[name] = credential;
     }
 
     Future<void> requireCustomer() async {
@@ -339,8 +354,9 @@ final class StorefrontTransport {
       case StorefrontAuthorization.customer:
         await requireCustomer();
       case StorefrontAuthorization.cart:
-        if (cartToken != null && cartToken.trim().isNotEmpty) {
-          request.headers['x-cart-token'] = cartToken;
+        final capability = optionalCredential(cartToken, 'The cart capability');
+        if (capability != null) {
+          request.headers['x-cart-token'] = capability;
         } else {
           await requireCustomer();
         }
@@ -356,8 +372,10 @@ final class StorefrontTransport {
           'A checkout handoff capability',
         );
       case StorefrontAuthorization.receiptOrCustomer:
-        if (receiptToken != null && receiptToken.trim().isNotEmpty) {
-          request.headers['x-receipt-token'] = receiptToken;
+        final capability =
+            optionalCredential(receiptToken, 'The receipt capability');
+        if (capability != null) {
+          request.headers['x-receipt-token'] = capability;
         } else {
           await requireCustomer();
         }
@@ -374,29 +392,6 @@ final class StorefrontTransport {
       _client.close();
     }
   }
-}
-
-Uri _normalizeBaseUri(Uri uri) {
-  final isLoopback =
-      uri.host == 'localhost' || uri.host == '127.0.0.1' || uri.host == '::1';
-  final validScheme =
-      uri.scheme == 'https' || (isLoopback && uri.scheme == 'http');
-  final originOnly = uri.hasScheme &&
-      uri.host.isNotEmpty &&
-      uri.userInfo.isEmpty &&
-      (uri.path.isEmpty || uri.path == '/') &&
-      !uri.hasQuery &&
-      !uri.hasFragment;
-  if (!validScheme || !originOnly) {
-    throw const StorefrontConfigurationException(
-      'baseUri must be an origin-only HTTPS URI, except for loopback development.',
-    );
-  }
-  return Uri(
-    scheme: uri.scheme,
-    host: uri.host,
-    port: uri.hasPort ? uri.port : null,
-  );
 }
 
 Object? _parseJson(String body, int statusCode) {

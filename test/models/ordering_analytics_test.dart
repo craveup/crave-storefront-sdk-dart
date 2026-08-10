@@ -36,6 +36,28 @@ void main() {
     expect(request.toJson(), isNot(contains('cartAccessToken')));
   });
 
+  test('ordering-session request rejects reserved return URL schemes', () {
+    expect(
+      () => StartOrderingSessionRequest(
+        fulfillmentMethod: FulfillmentMethod.takeout,
+        returnUrl: Uri.parse('javascript:private-value'),
+      ),
+      throwsArgumentError,
+    );
+  });
+
+  test('ordering-session request keeps return URLs out of metadata', () {
+    expect(
+      () => StartOrderingSessionRequest(
+        fulfillmentMethod: FulfillmentMethod.takeout,
+        metadata: const <String, Object?>{
+          'returnUrl': 'https://private.example.test',
+        },
+      ),
+      throwsArgumentError,
+    );
+  });
+
   test('ordering-session result decodes the cart and capability', () {
     final result = StartOrderingSessionResult.fromJson(<String, Object?>{
       'cart': cartFixture(),

@@ -1,3 +1,4 @@
+import 'package:crave_storefront_sdk/src/errors.dart';
 import 'package:crave_storefront_sdk/src/session/session.dart';
 import 'package:crave_storefront_sdk/src/session/session_store.dart';
 import 'package:test/test.dart';
@@ -89,5 +90,26 @@ void main() {
     );
 
     expect(session.toString(), isNot(contains('never-print-this-capability')));
+  });
+
+  test('session scopes require a safe canonical API origin', () {
+    const sensitive = 'private-user-info';
+    Object? failure;
+
+    try {
+      StorefrontSessionScope(
+        apiOrigin: Uri.parse(
+          'https://$sensitive@api.example.test/private?token=hidden',
+        ),
+        merchantSlug: 'merchant-a',
+        locationId: 'location-a',
+      );
+    } on Object catch (error) {
+      failure = error;
+    }
+
+    expect(failure, isA<StorefrontConfigurationException>());
+    expect(failure.toString(), isNot(contains(sensitive)));
+    expect(failure.toString(), isNot(contains('hidden')));
   });
 }
