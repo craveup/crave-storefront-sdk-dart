@@ -1,0 +1,10 @@
+.github/
+docs/superpowers/
+test/
+tool/
+.dart_tool/
+build/
+coverage/
+doc/
+AGENTS.md
+analysis_options.yaml
