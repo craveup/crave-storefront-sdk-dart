@@ -276,7 +276,7 @@ void main() {
       baseUri: Uri.parse('https://api.example.test'),
       merchantSlug: 'example-merchant',
       sessionStore: store,
-      timeout: const Duration(milliseconds: 10),
+      timeout: const Duration(seconds: 1),
       httpClient: MockClient(
         (_) async => http.Response(
           jsonEncode(_cartFixture(revision: 2)),
@@ -286,13 +286,15 @@ void main() {
       ),
     );
 
+    final pending = client.carts.update(
+      'location_01',
+      'cart_01',
+      const UpdateCartRequest(fulfillmentMethod: FulfillmentMethod.delivery),
+      options: const StorefrontRequestOptions(idempotencyKey: stableKey),
+    );
+    await store.writeStarted.future.timeout(const Duration(seconds: 1));
     await expectLater(
-      client.carts.update(
-        'location_01',
-        'cart_01',
-        const UpdateCartRequest(fulfillmentMethod: FulfillmentMethod.delivery),
-        options: const StorefrontRequestOptions(idempotencyKey: stableKey),
-      ),
+      pending,
       throwsA(
         isA<StorefrontTimeoutException>().having(
           (error) => error.retryIdempotencyKey,
@@ -310,7 +312,7 @@ void main() {
       baseUri: Uri.parse('https://api.example.test'),
       merchantSlug: 'example-merchant',
       sessionStore: store,
-      timeout: const Duration(milliseconds: 10),
+      timeout: const Duration(seconds: 1),
       httpClient: MockClient(
         (_) async => http.Response(
           jsonEncode(_cartFixture(revision: 2)),
@@ -320,12 +322,14 @@ void main() {
       ),
     );
 
+    final pending = client.carts.update(
+      'location_01',
+      'cart_01',
+      const UpdateCartRequest(fulfillmentMethod: FulfillmentMethod.delivery),
+    );
+    await store.writeStarted.future.timeout(const Duration(seconds: 1));
     await expectLater(
-      client.carts.update(
-        'location_01',
-        'cart_01',
-        const UpdateCartRequest(fulfillmentMethod: FulfillmentMethod.delivery),
-      ),
+      pending,
       throwsA(
         isA<StorefrontTimeoutException>().having(
           (error) => error.retryIdempotencyKey,
