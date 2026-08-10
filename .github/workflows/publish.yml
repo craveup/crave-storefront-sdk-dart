@@ -1,0 +1,78 @@
+name: Publish to pub.dev
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+permissions: {}
+
+concurrency:
+  group: pub-dev-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate exact release tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the release tag
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Flutter and Dart
+        uses: subosito/flutter-action@fd55f4c5af5b953cc57a2be44cb082c8f6635e8e # v2.21.0
+        with:
+          channel: stable
+          cache: true
+      - name: Verify release identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          package_version=$(sed -n 's/^version:[[:space:]]*//p' pubspec.yaml)
+          test "v${package_version}" = "${GITHUB_REF_NAME}"
+          release_commit=$(git rev-list -n 1 "refs/tags/${GITHUB_REF_NAME}")
+          test "${release_commit}" = "$(git rev-parse HEAD)"
+          test -z "$(git status --porcelain --untracked-files=all)"
+      - name: Install pana
+        run: dart pub global activate pana 0.23.17
+      - name: Validate exact tag, consumers, quality, and archive
+        env:
+          PANA_VERSION: '0.23.17'
+        run: ./tool/verify_release.sh
+
+  publish:
+    name: Publish through pub.dev OIDC
+    needs: validate
+    # pub.dev requires the first package version to be published interactively.
+    # Validation still runs for v0.1.0; only this OIDC upload is skipped.
+    if: github.ref_name != 'v0.1.0'
+    runs-on: ubuntu-latest
+    environment: pub.dev
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out the validated release tag
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Dart with pub.dev OIDC
+        uses: dart-lang/setup-dart@65eb853c7ba17dde3be364c3d2858773e7144260 # v1.7.2
+        with:
+          sdk: stable
+      - name: Reassert validated release identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          package_version=$(sed -n 's/^version:[[:space:]]*//p' pubspec.yaml)
+          test "v${package_version}" = "${GITHUB_REF_NAME}"
+          release_commit=$(git rev-list -n 1 "refs/tags/${GITHUB_REF_NAME}")
+          test "${release_commit}" = "$(git rev-parse HEAD)"
+          test -z "$(git status --porcelain --untracked-files=all)"
+      - name: Publish reviewed tag
+        run: dart pub publish --force

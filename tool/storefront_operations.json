@@ -1,0 +1,511 @@
+{
+  "schemaVersion": 1,
+  "basePath": "/api/v1/storefront",
+  "source": {
+    "repository": "https://github.com/craveup/craveup-turborepo",
+    "commit": "7fb18e9918f2181d426a73762cd97f3deb7d5418"
+  },
+  "operations": [
+    {
+      "operationId": "storefrontGetLocation",
+      "method": "GET",
+      "path": "/api/v1/storefront/locations/:locationSlugOrId",
+      "auth": "public",
+      "idempotency": false,
+      "revision": "none",
+      "etag": false,
+      "sdkMethod": "locations.get"
+    },
+    {
+      "operationId": "storefrontCalculateLocationDistance",
+      "method": "POST",
+      "path": "/api/v1/storefront/locations/:locationId/distance",
+      "auth": "public",
+      "idempotency": false,
+      "revision": "none",
+      "etag": false,
+      "sdkMethod": "locations.calculateDistance"
+    },
+    {
+      "operationId": "storefrontListLocationTimeIntervals",
+      "method": "GET",
+      "path": "/api/v1/storefront/locations/:locationId/time-intervals",
+      "auth": "public",
+      "idempotency": false,
+      "revision": "none",
+      "etag": false,
+      "sdkMethod": "locations.listTimeIntervals"
+    },
+    {
+      "operationId": "storefrontGetLocationGratuity",
+      "method": "GET",
+      "path": "/api/v1/storefront/locations/:locationId/gratuity",
+      "auth": "public",
+      "idempotency": false,
+      "revision": "none",
+      "etag": false,
+      "sdkMethod": "locations.getGratuity"
+    },
+    {
+      "operationId": "storefrontOpenLocationRedirect",
+      "method": "GET",
+      "path": "/api/v1/storefront/locations/:locationId/redirect",
+      "auth": "public",
+      "idempotency": false,
+      "revision": "none",
+      "etag": false,
+      "sdkMethod": null,
+      "exclusionReason": "Browser navigation redirect; the typed JSON SDK does not follow cross-origin navigation responses."
+    },
+    {
+      "operationId": "storefrontCreateCartPaymentIntent",
+      "method": "POST",
+      "path": "/api/v1/storefront/locations/:locationId/carts/:cartId/payment-intent",
+      "auth": "cart",
+      "idempotency": true,
+      "revision": "cart",
+      "etag": true,
+      "sdkMethod": "checkout.createPaymentIntent"
+    },
+    {
+      "operationId": "storefrontGetCartOrderResult",
+      "method": "GET",
+      "path": "/api/v1/storefront/locations/:locationId/carts/:cartId/order-result",
+      "auth": "cart",
+      "idempotency": false,
+      "revision": "none",
+      "etag": false,
+      "sdkMethod": "checkout.getOrderResult"
+    },
+    {
+      "operationId": "storefrontSubmitCartRating",
+      "method": "POST",
+      "path": "/api/v1/storefront/locations/:locationId/carts/:cartId/rating",
+      "auth": "cart",
+      "idempotency": true,
+      "revision": "none",
+      "etag": false,
+      "sdkMethod": "ratings.submit"
+    },
+    {
+      "operationId": "storefrontGetLocationMenus",
+      "method": "GET",
+      "path": "/api/v1/storefront/locations/:locationId/menus",
+      "auth": "public",
+      "idempotency": false,
+      "revision": "none",
+      "etag": false,
+      "sdkMethod": "menus.getForLocation"
+    },
+    {
+      "operationId": "storefrontGetLocationProduct",
+      "method": "GET",
+      "path": "/api/v1/storefront/locations/:locationId/products/:productId",
+      "auth": "public",
+      "idempotency": false,
+      "revision": "none",
+      "etag": false,
+      "sdkMethod": "products.getForLocation"
+    },
+    {
+      "operationId": "storefrontGetMerchant",
+      "method": "GET",
+      "path": "/api/v1/storefront/merchant/:merchantSlug",
+      "auth": "public",
+      "idempotency": false,
+      "revision": "none",
+      "etag": false,
+      "sdkMethod": "merchants.get"
+    },
+    {
+      "operationId": "storefrontStartOrderingSession",
+      "method": "POST",
+      "path": "/api/v1/storefront/locations/:locationId/ordering-sessions",
+      "auth": "optionalCustomer",
+      "idempotency": true,
+      "revision": "cart",
+      "etag": true,
+      "sdkMethod": "orderingSessions.start"
+    },
+    {
+      "operationId": "storefrontSubmitAnalyticsEvent",
+      "method": "POST",
+      "path": "/api/v1/storefront/locations/:locationId/analytics-events",
+      "auth": "cart",
+      "idempotency": true,
+      "revision": "none",
+      "etag": false,
+      "sdkMethod": "analyticsEvents.submit"
+    },
+    {
+      "operationId": "storefrontGetCart",
+      "method": "GET",
+      "path": "/api/v1/storefront/locations/:locationId/carts/:cartId",
+      "auth": "cart",
+      "idempotency": false,
+      "revision": "none",
+      "etag": true,
+      "sdkMethod": "carts.get"
+    },
+    {
+      "operationId": "storefrontPrepareCheckoutHandoff",
+      "method": "POST",
+      "path": "/api/v1/storefront/locations/:locationId/carts/:cartId/checkout-handoffs",
+      "auth": "cartCapability",
+      "idempotency": true,
+      "revision": "none",
+      "etag": false,
+      "sdkMethod": "checkout.prepareHandoff"
+    },
+    {
+      "operationId": "storefrontExchangeCheckoutHandoff",
+      "method": "POST",
+      "path": "/api/v1/storefront/locations/:locationId/carts/:cartId/checkout-handoffs/exchange",
+      "auth": "checkoutHandoff",
+      "idempotency": true,
+      "revision": "none",
+      "etag": true,
+      "sdkMethod": "checkout.exchangeHandoff"
+    },
+    {
+      "operationId": "storefrontListCartRecommendedProducts",
+      "method": "GET",
+      "path": "/api/v1/storefront/locations/:locationId/carts/:cartId/products",
+      "auth": "cart",
+      "idempotency": false,
+      "revision": "none",
+      "etag": true,
+      "sdkMethod": "carts.listRecommendedProducts"
+    },
+    {
+      "operationId": "storefrontUpdateCart",
+      "method": "PATCH",
+      "path": "/api/v1/storefront/locations/:locationId/carts/:cartId",
+      "auth": "cart",
+      "idempotency": true,
+      "revision": "cart",
+      "etag": true,
+      "sdkMethod": "carts.update"
+    },
+    {
+      "operationId": "storefrontDeleteCart",
+      "method": "DELETE",
+      "path": "/api/v1/storefront/locations/:locationId/carts/:cartId",
+      "auth": "cart",
+      "idempotency": true,
+      "revision": "cart",
+      "etag": true,
+      "sdkMethod": "carts.delete"
+    },
+    {
+      "operationId": "storefrontValidateCartForCheckout",
+      "method": "PUT",
+      "path": "/api/v1/storefront/locations/:locationId/carts/:cartId/validate-and-update",
+      "auth": "cart",
+      "idempotency": true,
+      "revision": "cart",
+      "etag": true,
+      "sdkMethod": "carts.validateForCheckout"
+    },
+    {
+      "operationId": "storefrontUpdateCartGratuity",
+      "method": "PUT",
+      "path": "/api/v1/storefront/locations/:locationId/carts/:cartId/gratuity",
+      "auth": "cart",
+      "idempotency": true,
+      "revision": "cart",
+      "etag": true,
+      "sdkMethod": "carts.updateGratuity"
+    },
+    {
+      "operationId": "storefrontSetCartDelivery",
+      "method": "PUT",
+      "path": "/api/v1/storefront/locations/:locationId/carts/:cartId/set-delivery",
+      "auth": "cart",
+      "idempotency": true,
+      "revision": "cart",
+      "etag": true,
+      "sdkMethod": "carts.setDelivery"
+    },
+    {
+      "operationId": "storefrontSetCartTable",
+      "method": "PUT",
+      "path": "/api/v1/storefront/locations/:locationId/carts/:cartId/set-table",
+      "auth": "cart",
+      "idempotency": true,
+      "revision": "cart",
+      "etag": true,
+      "sdkMethod": "carts.setTable"
+    },
+    {
+      "operationId": "storefrontSetCartRoom",
+      "method": "PUT",
+      "path": "/api/v1/storefront/locations/:locationId/carts/:cartId/set-room",
+      "auth": "cart",
+      "idempotency": true,
+      "revision": "cart",
+      "etag": true,
+      "sdkMethod": "carts.setRoom"
+    },
+    {
+      "operationId": "storefrontUpdateCartOrderTime",
+      "method": "PUT",
+      "path": "/api/v1/storefront/locations/:locationId/carts/:cartId/update-order-time",
+      "auth": "cart",
+      "idempotency": true,
+      "revision": "cart",
+      "etag": true,
+      "sdkMethod": "carts.updateOrderTime"
+    },
+    {
+      "operationId": "storefrontApplyCartDiscount",
+      "method": "POST",
+      "path": "/api/v1/storefront/locations/:locationId/carts/:cartId/discount",
+      "auth": "cart",
+      "idempotency": true,
+      "revision": "cart",
+      "etag": true,
+      "sdkMethod": "carts.applyDiscount"
+    },
+    {
+      "operationId": "storefrontRemoveCartDiscount",
+      "method": "DELETE",
+      "path": "/api/v1/storefront/locations/:locationId/carts/:cartId/discount",
+      "auth": "cart",
+      "idempotency": true,
+      "revision": "cart",
+      "etag": true,
+      "sdkMethod": "carts.removeDiscount"
+    },
+    {
+      "operationId": "storefrontClaimCart",
+      "method": "POST",
+      "path": "/api/v1/storefront/locations/:locationId/carts/:cartId/claim",
+      "auth": "cartAndCustomer",
+      "idempotency": true,
+      "revision": "cart",
+      "etag": true,
+      "sdkMethod": "carts.claim"
+    },
+    {
+      "operationId": "storefrontAddCartItem",
+      "method": "POST",
+      "path": "/api/v1/storefront/locations/:locationId/carts/:cartId/items",
+      "auth": "cart",
+      "idempotency": true,
+      "revision": "cart",
+      "etag": true,
+      "sdkMethod": "carts.addItem"
+    },
+    {
+      "operationId": "storefrontUpdateCartItemQuantity",
+      "method": "PATCH",
+      "path": "/api/v1/storefront/locations/:locationId/carts/:cartId/items/:itemId",
+      "auth": "cart",
+      "idempotency": true,
+      "revision": "cart",
+      "etag": true,
+      "sdkMethod": "carts.updateItemQuantity"
+    },
+    {
+      "operationId": "storefrontRemoveCartItem",
+      "method": "DELETE",
+      "path": "/api/v1/storefront/locations/:locationId/carts/:cartId/items/:itemId",
+      "auth": "cart",
+      "idempotency": true,
+      "revision": "cart",
+      "etag": true,
+      "sdkMethod": "carts.removeItem"
+    },
+    {
+      "operationId": "storefrontGetLoyaltyQuote",
+      "method": "GET",
+      "path": "/api/v1/storefront/locations/:locationId/carts/:cartId/loyalty/quote",
+      "auth": "customer",
+      "idempotency": false,
+      "revision": "none",
+      "etag": true,
+      "sdkMethod": "loyalty.getQuote"
+    },
+    {
+      "operationId": "storefrontRedeemLoyaltyReward",
+      "method": "POST",
+      "path": "/api/v1/storefront/locations/:locationId/carts/:cartId/loyalty/redeem",
+      "auth": "customer",
+      "idempotency": true,
+      "revision": "cart",
+      "etag": true,
+      "sdkMethod": "loyalty.redeem"
+    },
+    {
+      "operationId": "storefrontCancelLoyaltyRedemption",
+      "method": "DELETE",
+      "path": "/api/v1/storefront/locations/:locationId/carts/:cartId/loyalty/redeem",
+      "auth": "customer",
+      "idempotency": true,
+      "revision": "cart",
+      "etag": true,
+      "sdkMethod": "loyalty.cancelRedemption"
+    },
+    {
+      "operationId": "storefrontGetCustomerLoyaltyLedger",
+      "method": "GET",
+      "path": "/api/v1/storefront/customer/loyalty/ledger",
+      "auth": "customer",
+      "idempotency": false,
+      "revision": "none",
+      "etag": false,
+      "sdkMethod": "loyalty.getLedger"
+    },
+    {
+      "operationId": "storefrontSubmitCustomerLoyaltyClaim",
+      "method": "POST",
+      "path": "/api/v1/storefront/customer/loyalty/claims",
+      "auth": "customer",
+      "idempotency": true,
+      "revision": "none",
+      "etag": false,
+      "sdkMethod": "loyalty.submitClaim"
+    },
+    {
+      "operationId": "storefrontListCustomerLoyaltyClaims",
+      "method": "GET",
+      "path": "/api/v1/storefront/customer/loyalty/claims",
+      "auth": "customer",
+      "idempotency": false,
+      "revision": "none",
+      "etag": false,
+      "sdkMethod": "loyalty.listClaims"
+    },
+    {
+      "operationId": "storefrontRequestCustomerLogin",
+      "method": "POST",
+      "path": "/api/v1/storefront/customer/auth/login",
+      "auth": "public",
+      "idempotency": false,
+      "revision": "none",
+      "etag": false,
+      "sdkMethod": "customers.requestLogin"
+    },
+    {
+      "operationId": "storefrontVerifyCustomerOtp",
+      "method": "POST",
+      "path": "/api/v1/storefront/customer/auth/verify-otp",
+      "auth": "public",
+      "idempotency": false,
+      "revision": "none",
+      "etag": false,
+      "sdkMethod": "customers.verifyOtp"
+    },
+    {
+      "operationId": "storefrontGetCustomerProfile",
+      "method": "GET",
+      "path": "/api/v1/storefront/customer",
+      "auth": "customer",
+      "idempotency": false,
+      "revision": "none",
+      "etag": false,
+      "sdkMethod": "customers.getProfile"
+    },
+    {
+      "operationId": "storefrontListCustomerOrders",
+      "method": "GET",
+      "path": "/api/v1/storefront/customer/orders",
+      "auth": "customer",
+      "idempotency": false,
+      "revision": "none",
+      "etag": false,
+      "sdkMethod": "customers.listOrders"
+    },
+    {
+      "operationId": "storefrontGetCustomerOrder",
+      "method": "GET",
+      "path": "/api/v1/storefront/customer/orders/:orderId",
+      "auth": "customer",
+      "idempotency": false,
+      "revision": "none",
+      "etag": false,
+      "sdkMethod": "customers.getOrder"
+    },
+    {
+      "operationId": "storefrontListCustomerAddresses",
+      "method": "GET",
+      "path": "/api/v1/storefront/customer/addresses",
+      "auth": "customer",
+      "idempotency": false,
+      "revision": "none",
+      "etag": false,
+      "sdkMethod": "customers.listAddresses"
+    },
+    {
+      "operationId": "storefrontCreateCustomerAddress",
+      "method": "POST",
+      "path": "/api/v1/storefront/customer/addresses",
+      "auth": "customer",
+      "idempotency": true,
+      "revision": "none",
+      "etag": false,
+      "sdkMethod": "customers.createAddress"
+    },
+    {
+      "operationId": "storefrontUpdateCustomerAddress",
+      "method": "PATCH",
+      "path": "/api/v1/storefront/customer/addresses/:addressId",
+      "auth": "customer",
+      "idempotency": true,
+      "revision": "address",
+      "etag": true,
+      "sdkMethod": "customers.updateAddress"
+    },
+    {
+      "operationId": "storefrontDeleteCustomerAddress",
+      "method": "DELETE",
+      "path": "/api/v1/storefront/customer/addresses/:addressId",
+      "auth": "customer",
+      "idempotency": true,
+      "revision": "none",
+      "etag": false,
+      "sdkMethod": "customers.deleteAddress"
+    },
+    {
+      "operationId": "storefrontListCustomerSavedPayments",
+      "method": "GET",
+      "path": "/api/v1/storefront/customer/saved-payments",
+      "auth": "customer",
+      "idempotency": false,
+      "revision": "none",
+      "etag": false,
+      "sdkMethod": "customers.listSavedPayments"
+    },
+    {
+      "operationId": "storefrontDeleteCustomerSavedPayment",
+      "method": "DELETE",
+      "path": "/api/v1/storefront/customer/saved-payments/:paymentId",
+      "auth": "customer",
+      "idempotency": false,
+      "revision": "none",
+      "etag": false,
+      "sdkMethod": "customers.deleteSavedPayment"
+    },
+    {
+      "operationId": "storefrontLogoutCustomer",
+      "method": "DELETE",
+      "path": "/api/v1/storefront/customer/logout",
+      "auth": "customer",
+      "idempotency": false,
+      "revision": "none",
+      "etag": false,
+      "sdkMethod": "customers.logout"
+    },
+    {
+      "operationId": "storefrontGetReceipt",
+      "method": "GET",
+      "path": "/api/v1/storefront/receipts/:receiptId",
+      "auth": "receiptOrCustomer",
+      "idempotency": false,
+      "revision": "none",
+      "etag": false,
+      "sdkMethod": "receipts.get"
+    }
+  ]
+}

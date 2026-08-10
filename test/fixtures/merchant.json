@@ -1,0 +1,29 @@
+{
+  "id": "merchant_01",
+  "name": "Example Tea",
+  "country": "US",
+  "currency": "usd",
+  "bio": null,
+  "logo": "https://cdn.example.test/logo.png",
+  "cover": null,
+  "locations": [
+    {
+      "id": "location_01",
+      "restaurantDisplayName": "Example Tea Downtown",
+      "coverPhoto": null,
+      "restaurantLogo": "https://cdn.example.test/location-logo.png",
+      "addressString": "100 Example Street",
+      "restaurantBio": null,
+      "lat": 40.7128,
+      "lng": null,
+      "methodsStatus": {
+        "pickup": true,
+        "table": false,
+        "delivery": true,
+        "roomService": false
+      },
+      "futureField": "ignored"
+    }
+  ],
+  "futureField": {"ignored": true}
+}

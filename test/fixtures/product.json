@@ -1,0 +1,30 @@
+{
+  "id": "product_01",
+  "locationId": "location_01",
+  "name": "Example Tea",
+  "description": "A sanitized product fixture",
+  "availability": "available",
+  "images": [],
+  "price": "5.00",
+  "displayPrice": "$5.00",
+  "currency": "usd",
+  "modifierIds": ["modifier_01"],
+  "modifiers": [
+    {
+      "id": "modifier_01",
+      "name": "Size",
+      "description": null,
+      "imageUrl": "https://cdn.example.test/modifier.png",
+      "rule": {"min": 1, "max": 1},
+      "items": [
+        {
+          "id": "option_01",
+          "name": "Regular",
+          "price": "0.00",
+          "maxQuantity": 1,
+          "childGroups": []
+        }
+      ]
+    }
+  ]
+}

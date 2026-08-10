@@ -1,0 +1,50 @@
+{
+  "id": "order_01",
+  "shortId": "A100",
+  "restaurantDisplayName": "Example Tea Downtown",
+  "fulfillmentMethod": "takeout",
+  "fulfillmentIdentifier": "counter",
+  "pickupType": "ASAP",
+  "orderTime": "12:00",
+  "orderDate": "2026-08-10",
+  "totalQuantity": 1,
+  "currency": "usd",
+  "orderTotal": "5.50",
+  "status": "future_status",
+  "createdAt": "2026-08-10T12:01:00.000Z",
+  "partiallyRefunded": false,
+  "items": [
+    {
+      "id": "item_01",
+      "name": "Example Tea",
+      "quantity": 1,
+      "price": "5.00",
+      "total": "5.00",
+      "discount": "0.00",
+      "specialInstructions": "",
+      "modifiers": []
+    }
+  ],
+  "pricing": {
+    "subtotal": "5.00",
+    "discount": "0.00",
+    "tax": "0.50",
+    "tip": "0.00",
+    "serviceFee": "0.00",
+    "fulfillmentFee": "0.00",
+    "enterpriseFee": "0.00",
+    "total": "5.50",
+    "refunded": "0.00",
+    "netPaid": "5.50"
+  },
+  "deliveryInfo": null,
+  "roomServiceInfo": null,
+  "tableServiceInfo": null,
+  "payment": {
+    "cardLast4": "4242",
+    "walletType": null,
+    "cardBrand": "visa"
+  },
+  "updatedAt": null,
+  "futureServerField": true
+}

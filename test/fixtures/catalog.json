@@ -1,0 +1,37 @@
+{
+  "menus": [
+    {
+      "id": "menu_01",
+      "name": "All Day",
+      "isActive": true,
+      "time": "all-day",
+      "imageUrl": null,
+      "categories": [
+        {
+          "id": "category_01",
+          "name": "Tea",
+          "products": [
+            {
+              "id": "product_01",
+              "name": "Example Tea",
+              "price": "5.00",
+              "displayPrice": "$5.00",
+              "currency": "usd",
+              "modifierIds": ["modifier_01"],
+              "description": null,
+              "availability": "available",
+              "images": [],
+              "nutrition": {
+                "calorieCount": 12.5,
+                "dietaryPreferences": ["vegan"],
+                "ingredients": null
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "popularProducts": [],
+  "newServerField": true
+}
