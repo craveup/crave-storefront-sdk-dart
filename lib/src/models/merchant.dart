@@ -3,16 +3,16 @@ import '../json/json_reader.dart';
 /// A merchant and its published Storefront locations.
 final class Merchant {
   /// Creates an immutable merchant.
-  const Merchant({
+  Merchant({
     required this.id,
     required this.name,
     required this.country,
     required this.currency,
-    required this.locations,
+    required Iterable<MerchantLocation> locations,
     this.bio,
     this.logo,
     this.cover,
-  });
+  }) : locations = List<MerchantLocation>.unmodifiable(locations);
 
   /// Decodes a merchant response and ignores unknown additive fields.
   factory Merchant.fromJson(Map<String, Object?> json) {
@@ -25,9 +25,9 @@ final class Merchant {
       bio: reader.nullableString('bio'),
       logo: reader.nullableString('logo'),
       cover: reader.nullableString('cover'),
-      locations: List<MerchantLocation>.unmodifiable(
-        reader.optionalObjectList('locations').map(MerchantLocation.fromReader),
-      ),
+      locations: reader
+          .optionalObjectList('locations')
+          .map(MerchantLocation._fromReader),
     );
   }
 
@@ -71,8 +71,13 @@ final class MerchantLocation {
     this.lng,
   });
 
-  /// Decodes a location from an existing reader.
-  factory MerchantLocation.fromReader(JsonReader reader) => MerchantLocation(
+  /// Decodes a merchant-location response.
+  factory MerchantLocation.fromJson(Map<String, Object?> json) =>
+      MerchantLocation._fromReader(
+        JsonReader.fromObject(json, context: 'merchantLocation'),
+      );
+
+  factory MerchantLocation._fromReader(JsonReader reader) => MerchantLocation(
         id: reader.string('id'),
         restaurantDisplayName: reader.string('restaurantDisplayName'),
         coverPhoto: reader.nullableString('coverPhoto'),
@@ -81,7 +86,7 @@ final class MerchantLocation {
         restaurantBio: reader.nullableString('restaurantBio'),
         lat: reader.nullableNumber('lat'),
         lng: reader.nullableNumber('lng'),
-        methods: MerchantFulfillmentMethods.fromReader(
+        methods: MerchantFulfillmentMethods._fromReader(
           reader.object('methodsStatus'),
         ),
       );
@@ -124,8 +129,13 @@ final class MerchantFulfillmentMethods {
     required this.roomService,
   });
 
-  /// Decodes availability from an existing reader.
-  factory MerchantFulfillmentMethods.fromReader(JsonReader reader) =>
+  /// Decodes merchant fulfillment availability.
+  factory MerchantFulfillmentMethods.fromJson(Map<String, Object?> json) =>
+      MerchantFulfillmentMethods._fromReader(
+        JsonReader.fromObject(json, context: 'merchantFulfillmentMethods'),
+      );
+
+  factory MerchantFulfillmentMethods._fromReader(JsonReader reader) =>
       MerchantFulfillmentMethods(
         pickup: reader.boolean('pickup'),
         table: reader.boolean('table'),

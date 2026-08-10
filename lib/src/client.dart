@@ -34,28 +34,28 @@ final class CraveStorefrontClient {
           customerTokenProvider: customerTokenProvider,
           defaultTimeout: timeout,
         ) {
-    merchants = MerchantsClient(_transport, this.merchantSlug);
-    locations = LocationsClient(_transport);
-    menus = MenusClient(_transport);
-    products = ProductsClient(_transport);
+    merchants = createMerchantsClient(_transport, this.merchantSlug);
+    locations = createLocationsClient(_transport);
+    menus = createMenusClient(_transport);
+    products = createProductsClient(_transport);
     _cartRuntime = CartSessionRuntime(
       apiOrigin: _transport.baseUri,
       merchantSlug: this.merchantSlug,
       sessionStore: this.sessionStore,
       idempotencyKeyGenerator: this.idempotencyKeyGenerator,
     );
-    orderingSessions = OrderingSessionsClient(_transport, _cartRuntime);
-    analyticsEvents = AnalyticsEventsClient(_transport, _cartRuntime);
-    carts = CartsClient(_transport, _cartRuntime);
-    customers = CustomersClient(
+    orderingSessions = createOrderingSessionsClient(_transport, _cartRuntime);
+    analyticsEvents = createAnalyticsEventsClient(_transport, _cartRuntime);
+    carts = createCartsClient(_transport, _cartRuntime);
+    customers = createCustomersClient(
       _transport,
       this.merchantSlug,
       this.idempotencyKeyGenerator,
     );
-    checkout = CheckoutClient(_transport, _cartRuntime);
-    ratings = RatingsClient(_transport, _cartRuntime);
-    receipts = ReceiptsClient(_transport);
-    loyalty = LoyaltyClient(_transport, _cartRuntime);
+    checkout = createCheckoutClient(_transport, _cartRuntime);
+    ratings = createRatingsClient(_transport, _cartRuntime);
+    receipts = createReceiptsClient(_transport);
+    loyalty = createLoyaltyClient(_transport, _cartRuntime);
   }
 
   final StorefrontTransport _transport;

@@ -34,6 +34,24 @@ void main() {
       expect(location.address?.lat, 40.7128);
     });
 
+    test('accepts a partial published address with nullable coordinates', () {
+      final location = StorefrontLocation.fromJson(<String, Object?>{
+        'id': 'location_01',
+        'restaurantSlug': 'example-tea-downtown',
+        'restaurantDisplayName': 'Example Tea Downtown',
+        'addressData': <String, Object?>{
+          'lat': null,
+          'lng': -74.006,
+        },
+        'addressString': 'Downtown',
+      });
+
+      expect(location.address?.street, isNull);
+      expect(location.address?.city, isNull);
+      expect(location.address?.lat, isNull);
+      expect(location.address?.lng, -74.006);
+    });
+
     test('keeps an unknown response distance unit without crashing', () {
       final result = DistanceResult.fromJson(<String, Object?>{
         'locationId': 'location_01',

@@ -16,10 +16,9 @@ final class Address {
 
   /// Decodes an address from Storefront JSON.
   factory Address.fromJson(Map<String, Object?> json) =>
-      Address.fromReader(JsonReader.fromObject(json, context: 'address'));
+      Address._fromReader(JsonReader.fromObject(json, context: 'address'));
 
-  /// Decodes an address from an existing reader.
-  factory Address.fromReader(JsonReader reader) => Address(
+  factory Address._fromReader(JsonReader reader) => Address(
         street: reader.string('street'),
         streetOptional: reader.nullableString('streetOptional'),
         city: reader.string('city'),
@@ -136,7 +135,8 @@ final class DeliveryAddressRequest {
 /// A cursor-based page returned by a customer endpoint.
 final class CursorPage<T> {
   /// Creates an immutable cursor page.
-  const CursorPage({required this.items, required this.nextCursor});
+  CursorPage({required Iterable<T> items, required this.nextCursor})
+      : items = List<T>.unmodifiable(items);
 
   /// Decodes a cursor page using [decodeItem] for each entry.
   factory CursorPage.fromJson(
@@ -145,11 +145,9 @@ final class CursorPage<T> {
   ) {
     final reader = JsonReader.fromObject(json, context: 'cursorPage');
     return CursorPage<T>(
-      items: List<T>.unmodifiable(
-        reader.objectList('items').map(
-              (item) => decodeItem(item.asMap()),
-            ),
-      ),
+      items: reader.objectList('items').map(
+            (item) => decodeItem(item.asMap()),
+          ),
       nextCursor: reader.nullableString('nextCursor'),
     );
   }

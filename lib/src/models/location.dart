@@ -1,5 +1,60 @@
 import '../json/json_reader.dart';
-import 'common.dart';
+
+/// Partially configured postal data published for a Storefront location.
+final class PublishedAddress {
+  /// Creates immutable published address data.
+  const PublishedAddress({
+    this.street,
+    this.streetOptional,
+    this.city,
+    this.state,
+    this.zipCode,
+    this.country,
+    this.lat,
+    this.lng,
+  });
+
+  /// Decodes optional published address fields.
+  factory PublishedAddress.fromJson(Map<String, Object?> json) =>
+      PublishedAddress._fromReader(
+        JsonReader.fromObject(json, context: 'publishedAddress'),
+      );
+
+  factory PublishedAddress._fromReader(JsonReader reader) => PublishedAddress(
+        street: reader.nullableString('street'),
+        streetOptional: reader.nullableString('streetOptional'),
+        city: reader.nullableString('city'),
+        state: reader.nullableString('state'),
+        zipCode: reader.nullableString('zipCode'),
+        country: reader.nullableString('country'),
+        lat: reader.nullableNumber('lat'),
+        lng: reader.nullableNumber('lng'),
+      );
+
+  /// Primary street line, when published.
+  final String? street;
+
+  /// Secondary street line, when published.
+  final String? streetOptional;
+
+  /// City name, when published.
+  final String? city;
+
+  /// State, province, or region, when published.
+  final String? state;
+
+  /// Postal code, when published.
+  final String? zipCode;
+
+  /// Country name or code, when published.
+  final String? country;
+
+  /// Latitude, when published.
+  final double? lat;
+
+  /// Longitude, when published.
+  final double? lng;
+}
 
 /// A published Storefront location.
 final class StorefrontLocation {
@@ -26,7 +81,9 @@ final class StorefrontLocation {
       restaurantBio: reader.nullableString('restaurantBio'),
       coverPhoto: reader.nullableString('coverPhoto'),
       restaurantLogo: reader.nullableString('restaurantLogo'),
-      address: addressReader == null ? null : Address.fromReader(addressReader),
+      address: addressReader == null
+          ? null
+          : PublishedAddress._fromReader(addressReader),
       addressString: reader.string('addressString'),
     );
   }
@@ -50,7 +107,7 @@ final class StorefrontLocation {
   final String? restaurantLogo;
 
   /// Structured address, when present.
-  final Address? address;
+  final PublishedAddress? address;
 
   /// Customer-facing address.
   final String addressString;
@@ -117,8 +174,8 @@ final class DistanceResult {
     final reader = JsonReader.fromObject(json, context: 'distanceResult');
     return DistanceResult(
       locationId: reader.string('locationId'),
-      location: DistanceLocation.fromReader(reader.object('location')),
-      distance: DistanceMeasurement.fromReader(reader.object('distance')),
+      location: DistanceLocation._fromReader(reader.object('location')),
+      distance: DistanceMeasurement._fromReader(reader.object('distance')),
     );
   }
 
@@ -142,12 +199,17 @@ final class DistanceLocation {
     required this.coordinates,
   });
 
-  /// Decodes a distance location from an existing reader.
-  factory DistanceLocation.fromReader(JsonReader reader) => DistanceLocation(
+  /// Decodes a distance-location response.
+  factory DistanceLocation.fromJson(Map<String, Object?> json) =>
+      DistanceLocation._fromReader(
+        JsonReader.fromObject(json, context: 'distanceLocation'),
+      );
+
+  factory DistanceLocation._fromReader(JsonReader reader) => DistanceLocation(
         id: reader.string('id'),
         restaurantDisplayName: reader.string('restaurantDisplayName'),
         addressString: reader.string('addressString'),
-        coordinates: Coordinates.fromReader(reader.object('coordinates')),
+        coordinates: Coordinates._fromReader(reader.object('coordinates')),
       );
 
   /// Stable location identifier.
@@ -168,8 +230,13 @@ final class Coordinates {
   /// Creates immutable coordinates.
   const Coordinates({required this.lat, required this.lng});
 
-  /// Decodes coordinates from an existing reader.
-  factory Coordinates.fromReader(JsonReader reader) => Coordinates(
+  /// Decodes published coordinates.
+  factory Coordinates.fromJson(Map<String, Object?> json) =>
+      Coordinates._fromReader(
+        JsonReader.fromObject(json, context: 'coordinates'),
+      );
+
+  factory Coordinates._fromReader(JsonReader reader) => Coordinates(
         lat: reader.number('lat'),
         lng: reader.number('lng'),
       );
@@ -191,8 +258,13 @@ final class DistanceMeasurement {
     required this.kilometers,
   });
 
-  /// Decodes a distance measurement from an existing reader.
-  factory DistanceMeasurement.fromReader(JsonReader reader) =>
+  /// Decodes a distance measurement.
+  factory DistanceMeasurement.fromJson(Map<String, Object?> json) =>
+      DistanceMeasurement._fromReader(
+        JsonReader.fromObject(json, context: 'distanceMeasurement'),
+      );
+
+  factory DistanceMeasurement._fromReader(JsonReader reader) =>
       DistanceMeasurement(
         value: reader.number('value'),
         unit: reader.string('unit'),
@@ -216,14 +288,18 @@ final class DistanceMeasurement {
 /// One restaurant-local ordering day and its time intervals.
 final class OrderDay {
   /// Creates an immutable ordering day.
-  const OrderDay({
+  OrderDay({
     required this.value,
     required this.label,
-    required this.intervals,
-  });
+    required Iterable<String> intervals,
+  }) : intervals = List<String>.unmodifiable(intervals);
 
-  /// Decodes an ordering day from an existing reader.
-  factory OrderDay.fromReader(JsonReader reader) => OrderDay(
+  /// Decodes an ordering day.
+  factory OrderDay.fromJson(Map<String, Object?> json) => OrderDay._fromReader(
+        JsonReader.fromObject(json, context: 'orderDay'),
+      );
+
+  factory OrderDay._fromReader(JsonReader reader) => OrderDay(
         value: reader.string('value'),
         label: reader.string('label'),
         intervals: reader.optionalStringList('intervals'),
@@ -242,19 +318,18 @@ final class OrderDay {
 /// Available order days and scheduling policy for a location.
 final class OrderTimes {
   /// Creates immutable order-time information.
-  const OrderTimes({
-    required this.orderDays,
+  OrderTimes({
+    required Iterable<OrderDay> orderDays,
     required this.scheduleAllowed,
     this.requireScheduledOrders,
-  });
+  }) : orderDays = List<OrderDay>.unmodifiable(orderDays);
 
   /// Decodes an order-times response.
   factory OrderTimes.fromJson(Map<String, Object?> json) {
     final reader = JsonReader.fromObject(json, context: 'orderTimes');
     return OrderTimes(
-      orderDays: List<OrderDay>.unmodifiable(
-        reader.optionalObjectList('orderDays').map(OrderDay.fromReader),
-      ),
+      orderDays:
+          reader.optionalObjectList('orderDays').map(OrderDay._fromReader),
       scheduleAllowed: reader.boolean('scheduleAllowed'),
       requireScheduledOrders: reader.nullableBoolean('requireScheduledOrders'),
     );
@@ -273,13 +348,13 @@ final class OrderTimes {
 /// Waiter-tip configuration for a location.
 final class GratuityConfiguration {
   /// Creates immutable gratuity configuration.
-  const GratuityConfiguration({
+  GratuityConfiguration({
     required this.enabled,
     required this.shouldAllowCustomTip,
-    required this.tipPercentages,
+    required Iterable<String> tipPercentages,
     required this.defaultTipPercentage,
     this.description,
-  });
+  }) : tipPercentages = List<String>.unmodifiable(tipPercentages);
 
   /// Decodes gratuity configuration.
   factory GratuityConfiguration.fromJson(Map<String, Object?> json) {

@@ -22,7 +22,7 @@
               "availability": "available",
               "images": [],
               "nutrition": {
-                "calorieCount": null,
+                "calorieCount": 12.5,
                 "dietaryPreferences": ["vegan"],
                 "ingredients": null
               }

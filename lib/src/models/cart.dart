@@ -2,7 +2,7 @@ import '../json/json_reader.dart';
 import 'catalog.dart';
 import 'common.dart';
 
-/// Fulfillment method accepted by cart and ordering-session requests.
+/// Fulfillment method accepted by cart update requests.
 enum FulfillmentMethod {
   /// Customer pickup or takeout.
   takeout('takeout'),
@@ -14,7 +14,13 @@ enum FulfillmentMethod {
   roomService('room_service'),
 
   /// Delivery to an address.
-  delivery('delivery');
+  delivery('delivery'),
+
+  /// Delivery by a restaurant-operated robot.
+  robotDelivery('robot_delivery'),
+
+  /// In-course service within a venue.
+  inCourseDelivery('in_course_delivery');
 
   const FulfillmentMethod(this.wireValue);
 
@@ -53,20 +59,20 @@ enum ItemUnavailableAction {
 /// A cart returned by the Storefront API.
 final class StorefrontCart {
   /// Creates an immutable cart.
-  const StorefrontCart({
+  StorefrontCart({
     required this.id,
     required this.locationId,
     required this.status,
     required this.revision,
     required this.fulfilmentMethod,
     required this.totalQuantity,
-    required this.items,
+    required Iterable<CartItem> items,
     this.merchantId,
     this.lockedAt,
     this.expiresAt,
     this.restaurantDisplayName,
     this.fulfillmentIdentifier,
-    this.metadata,
+    Map<String, Object?>? metadata,
     this.pickupType,
     this.orderDate,
     this.orderTime,
@@ -106,16 +112,18 @@ final class StorefrontCart {
     this.deliveryInfo,
     this.tableServiceInfo,
     this.roomServiceInfo,
-  });
+  })  : items = List<CartItem>.unmodifiable(items),
+        metadata = metadata == null
+            ? null
+            : freezeJsonMap(metadata, context: 'cart.metadata');
 
   /// Decodes a cart response and ignores unknown additive fields.
   factory StorefrontCart.fromJson(Map<String, Object?> json) =>
-      StorefrontCart.fromReader(
+      StorefrontCart._fromReader(
         JsonReader.fromObject(json, context: 'cart'),
       );
 
-  /// Decodes a cart from an existing reader.
-  factory StorefrontCart.fromReader(JsonReader reader) {
+  factory StorefrontCart._fromReader(JsonReader reader) {
     final fees = reader.nullableObject('fees');
     final delivery = reader.nullableObject('deliveryInfo');
     final table = reader.nullableObject('tableServiceInfo');
@@ -179,16 +187,14 @@ final class StorefrontCart {
       discountCode: reader.nullableString('discountCode'),
       statementDescriptor: reader.nullableString('statementDescriptor'),
       totalQuantity: reader.integer('totalQuantity'),
-      items: List<CartItem>.unmodifiable(
-        reader.optionalObjectList('items').map(CartItem.fromReader),
-      ),
-      fees: fees == null ? null : CartFees.fromReader(fees),
+      items: reader.objectList('items').map(CartItem._fromReader),
+      fees: fees == null ? null : CartFees._fromReader(fees),
       deliveryInfo:
-          delivery == null ? null : CartDeliveryInfo.fromReader(delivery),
+          delivery == null ? null : CartDeliveryInfo._fromReader(delivery),
       tableServiceInfo:
-          table == null ? null : CartTableServiceInfo.fromReader(table),
+          table == null ? null : CartTableServiceInfo._fromReader(table),
       roomServiceInfo:
-          room == null ? null : CartRoomServiceInfo.fromReader(room),
+          room == null ? null : CartRoomServiceInfo._fromReader(room),
     );
   }
 
@@ -352,7 +358,7 @@ final class StorefrontCart {
 /// A line item in a Storefront cart.
 final class CartItem {
   /// Creates an immutable cart item.
-  const CartItem({
+  CartItem({
     required this.id,
     required this.productId,
     required this.name,
@@ -360,7 +366,7 @@ final class CartItem {
     required this.quantity,
     required this.total,
     required this.itemUnavailableAction,
-    required this.selections,
+    required Iterable<CartModifierGroup> selections,
     this.description,
     this.imageUrl,
     this.priceFormatted,
@@ -370,10 +376,14 @@ final class CartItem {
     this.categoryId,
     this.specialInstructions,
     this.product,
-  });
+  }) : selections = List<CartModifierGroup>.unmodifiable(selections);
 
-  /// Decodes a cart item from an existing reader.
-  factory CartItem.fromReader(JsonReader reader) {
+  /// Decodes a cart-item response.
+  factory CartItem.fromJson(Map<String, Object?> json) => CartItem._fromReader(
+        JsonReader.fromObject(json, context: 'cartItem'),
+      );
+
+  factory CartItem._fromReader(JsonReader reader) {
     final product = reader.nullableObject('product');
     return CartItem(
       id: reader.string('id'),
@@ -391,12 +401,10 @@ final class CartItem {
       categoryId: reader.nullableString('categoryId'),
       specialInstructions: reader.nullableString('specialInstructions'),
       itemUnavailableAction: reader.string('itemUnavailableAction'),
-      selections: List<CartModifierGroup>.unmodifiable(
-        reader
-            .optionalObjectList('selections')
-            .map(CartModifierGroup.fromReader),
-      ),
-      product: product == null ? null : CartProductSummary.fromReader(product),
+      selections: reader
+          .optionalObjectList('selections')
+          .map(CartModifierGroup._fromReader),
+      product: product == null ? null : CartProductSummary._fromReader(product),
     );
   }
 
@@ -455,21 +463,26 @@ final class CartItem {
 /// A selected modifier group stored on a cart item.
 final class CartModifierGroup {
   /// Creates an immutable selected modifier group.
-  const CartModifierGroup({
+  CartModifierGroup({
     required this.id,
     required this.name,
     required this.rule,
-    required this.items,
-  });
+    required Iterable<CartModifierItem> items,
+  }) : items = List<CartModifierItem>.unmodifiable(items);
 
-  /// Decodes a selected modifier group from an existing reader.
-  factory CartModifierGroup.fromReader(JsonReader reader) => CartModifierGroup(
+  /// Decodes a selected cart modifier group.
+  factory CartModifierGroup.fromJson(Map<String, Object?> json) =>
+      CartModifierGroup._fromReader(
+        JsonReader.fromObject(json, context: 'cartModifierGroup'),
+      );
+
+  factory CartModifierGroup._fromReader(JsonReader reader) => CartModifierGroup(
         id: reader.string('id'),
         name: reader.string('name'),
-        rule: ModifierRule.fromReader(reader.object('rule')),
-        items: List<CartModifierItem>.unmodifiable(
-          reader.optionalObjectList('items').map(CartModifierItem.fromReader),
-        ),
+        rule: ModifierRule.fromJson(reader.object('rule').asMap()),
+        items: reader
+            .optionalObjectList('items')
+            .map(CartModifierItem._fromReader),
       );
 
   /// Stable modifier-group identifier.
@@ -488,27 +501,30 @@ final class CartModifierGroup {
 /// A selected modifier item stored on a cart item.
 final class CartModifierItem {
   /// Creates an immutable selected modifier item.
-  const CartModifierItem({
+  CartModifierItem({
     required this.id,
     required this.name,
     required this.price,
     required this.quantity,
-    required this.children,
+    required Iterable<CartModifierGroup> children,
     this.priceFormatted,
-  });
+  }) : children = List<CartModifierGroup>.unmodifiable(children);
 
-  /// Decodes a selected modifier item from an existing reader.
-  factory CartModifierItem.fromReader(JsonReader reader) => CartModifierItem(
+  /// Decodes a selected cart modifier item.
+  factory CartModifierItem.fromJson(Map<String, Object?> json) =>
+      CartModifierItem._fromReader(
+        JsonReader.fromObject(json, context: 'cartModifierItem'),
+      );
+
+  factory CartModifierItem._fromReader(JsonReader reader) => CartModifierItem(
         id: reader.string('id'),
         name: reader.string('name'),
         price: reader.string('price'),
         priceFormatted: reader.nullableString('priceFormatted'),
         quantity: reader.integer('quantity'),
-        children: List<CartModifierGroup>.unmodifiable(
-          reader
-              .optionalObjectList('children')
-              .map(CartModifierGroup.fromReader),
-        ),
+        children: reader
+            .optionalObjectList('children')
+            .map(CartModifierGroup._fromReader),
       );
 
   /// Stable modifier-item identifier.
@@ -535,8 +551,13 @@ final class CartProductSummary {
   /// Creates an immutable product summary.
   const CartProductSummary({required this.id, this.name, this.price});
 
-  /// Decodes a product summary from an existing reader.
-  factory CartProductSummary.fromReader(JsonReader reader) =>
+  /// Decodes an embedded cart product summary.
+  factory CartProductSummary.fromJson(Map<String, Object?> json) =>
+      CartProductSummary._fromReader(
+        JsonReader.fromObject(json, context: 'cartProduct'),
+      );
+
+  factory CartProductSummary._fromReader(JsonReader reader) =>
       CartProductSummary(
         id: reader.string('id'),
         name: reader.nullableString('name'),
@@ -569,8 +590,12 @@ final class CartFees {
     this.paymentProcessingFeeFix,
   });
 
-  /// Decodes cart fees from an existing reader.
-  factory CartFees.fromReader(JsonReader reader) => CartFees(
+  /// Decodes cart fees.
+  factory CartFees.fromJson(Map<String, Object?> json) => CartFees._fromReader(
+        JsonReader.fromObject(json, context: 'cartFees'),
+      );
+
+  factory CartFees._fromReader(JsonReader reader) => CartFees(
         enterpriseFeeRate: reader.nullableString('enterpriseFeeRate'),
         enterpriseFeeFix: reader.nullableString('enterpriseFeeFix'),
         serviceFeeRate: reader.nullableString('serviceFeeRate'),
@@ -623,12 +648,17 @@ final class CartDeliveryInfo {
   /// Creates immutable delivery details.
   const CartDeliveryInfo({required this.addressString, this.address});
 
-  /// Decodes delivery details from an existing reader.
-  factory CartDeliveryInfo.fromReader(JsonReader reader) {
+  /// Decodes cart delivery details.
+  factory CartDeliveryInfo.fromJson(Map<String, Object?> json) =>
+      CartDeliveryInfo._fromReader(
+        JsonReader.fromObject(json, context: 'cartDeliveryInfo'),
+      );
+
+  factory CartDeliveryInfo._fromReader(JsonReader reader) {
     final address = reader.nullableObject('addressData');
     return CartDeliveryInfo(
       addressString: reader.string('addressString'),
-      address: address == null ? null : Address.fromReader(address),
+      address: address == null ? null : Address.fromJson(address.asMap()),
     );
   }
 
@@ -644,8 +674,13 @@ final class CartTableServiceInfo {
   /// Creates immutable table details.
   const CartTableServiceInfo({this.tableNumber});
 
-  /// Decodes table details from an existing reader.
-  factory CartTableServiceInfo.fromReader(JsonReader reader) =>
+  /// Decodes cart table-service details.
+  factory CartTableServiceInfo.fromJson(Map<String, Object?> json) =>
+      CartTableServiceInfo._fromReader(
+        JsonReader.fromObject(json, context: 'cartTableServiceInfo'),
+      );
+
+  factory CartTableServiceInfo._fromReader(JsonReader reader) =>
       CartTableServiceInfo(tableNumber: reader.nullableString('tableNumber'));
 
   /// Customer-entered table number.
@@ -657,8 +692,13 @@ final class CartRoomServiceInfo {
   /// Creates immutable room-service details.
   const CartRoomServiceInfo({this.lastName, this.roomNumber});
 
-  /// Decodes room-service details from an existing reader.
-  factory CartRoomServiceInfo.fromReader(JsonReader reader) =>
+  /// Decodes cart room-service details.
+  factory CartRoomServiceInfo.fromJson(Map<String, Object?> json) =>
+      CartRoomServiceInfo._fromReader(
+        JsonReader.fromObject(json, context: 'cartRoomServiceInfo'),
+      );
+
+  factory CartRoomServiceInfo._fromReader(JsonReader reader) =>
       CartRoomServiceInfo(
         lastName: reader.nullableString('lastName'),
         roomNumber: reader.nullableString('roomNumber'),

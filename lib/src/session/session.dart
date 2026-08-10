@@ -76,6 +76,10 @@ final class StorefrontCartSession {
   /// Server-declared cart expiry when available.
   final DateTime? expiresAt;
 
+  /// Whether the server-declared lifetime has ended at [now].
+  bool isExpiredAt(DateTime now) =>
+      expiresAt != null && !expiresAt!.isAfter(now);
+
   /// Returns the same session with [nextRevision].
   StorefrontCartSession withRevision(int nextRevision) => StorefrontCartSession(
         scope: scope,

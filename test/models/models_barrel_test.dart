@@ -12,7 +12,7 @@ void main() {
         'locations': <Object?>[],
       }),
       DistanceRequest(lat: 0, lng: 0),
-      const CartRecommendation(
+      CartRecommendation(
         id: 'product_01',
         name: 'Tea',
         price: '1.00',
@@ -21,7 +21,7 @@ void main() {
       ),
       const SuccessResult(success: true),
       const PaymentPendingOrderResult(),
-      const LoyaltyClaims(claims: <LoyaltyClaim>[]),
+      LoyaltyClaims(claims: <LoyaltyClaim>[]),
     ];
 
     expect(values, hasLength(6));

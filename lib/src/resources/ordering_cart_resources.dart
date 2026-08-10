@@ -11,9 +11,30 @@ import '../runtime/request_runtime.dart';
 import 'cart_resource_support.dart';
 import 'resource_support.dart';
 
+/// Creates ordering-session resources for the package facade.
+OrderingSessionsClient createOrderingSessionsClient(
+  StorefrontTransport transport,
+  CartSessionRuntime cartRuntime,
+) =>
+    OrderingSessionsClient._(transport, cartRuntime);
+
+/// Creates analytics-event resources for the package facade.
+AnalyticsEventsClient createAnalyticsEventsClient(
+  StorefrontTransport transport,
+  CartSessionRuntime cartRuntime,
+) =>
+    AnalyticsEventsClient._(transport, cartRuntime);
+
+/// Creates cart resources for the package facade.
+CartsClient createCartsClient(
+  StorefrontTransport transport,
+  CartSessionRuntime cartRuntime,
+) =>
+    CartsClient._(transport, cartRuntime);
+
 /// Ordering-session bootstrap and resume operations.
 final class OrderingSessionsClient {
-  OrderingSessionsClient(this._transport, this._cartRuntime);
+  OrderingSessionsClient._(this._transport, this._cartRuntime);
 
   final StorefrontTransport _transport;
   final CartSessionRuntime _cartRuntime;
@@ -26,14 +47,6 @@ final class OrderingSessionsClient {
     StorefrontRequestOptions? options,
   }) async {
     final payload = <String, Object?>{...request.toJson()};
-    if (!payload.containsKey('existingCartId')) {
-      final stored = await _cartRuntime.sessionStore.read(
-        _cartRuntime.scopeFor(locationId),
-      );
-      if (stored != null) {
-        payload['existingCartId'] = stored.cartId;
-      }
-    }
     final key = jsonEncode([locationId, payload]);
     Future<StartOrderingSessionResult> operation() =>
         _performStart(locationId, payload, options);
@@ -45,62 +58,116 @@ final class OrderingSessionsClient {
     Map<String, Object?> payload,
     StorefrontRequestOptions? options,
   ) async {
+    const method = 'POST';
+    const routeTemplate = '/locations/:locationId/ordering-sessions';
+    final operation = StorefrontOperationContext(
+      defaultTimeout: _transport.defaultTimeout,
+      method: method,
+      routeTemplate: routeTemplate,
+      options: options,
+    );
+    if (!payload.containsKey('existingCartId')) {
+      final stored = await operation.waitForSession(
+        _cartRuntime.activeSessionFor(locationId),
+        operationMayHaveSucceeded: false,
+      );
+      if (stored != null) {
+        payload['existingCartId'] = stored.cartId;
+      }
+    }
     final existingCartId = payload['existingCartId'];
-    final context = existingCartId is String
-        ? await _cartRuntime.contextFor(
+    Future<StartOrderingSessionResult> send() async {
+      final context = existingCartId is String
+          ? await operation.waitForSession(
+              _cartRuntime.contextFor(
+                locationId: locationId,
+                cartId: existingCartId,
+                idempotent: true,
+                revisionRequired: true,
+                options: options,
+              ),
+              operationMayHaveSucceeded: false,
+            )
+          : await operation.waitForSession(
+              _cartRuntime.contextFor(
+                locationId: locationId,
+                cartId: '__new_cart__',
+                idempotent: true,
+                revisionRequired: false,
+                options: options,
+              ),
+              operationMayHaveSucceeded: false,
+            );
+      if (existingCartId is String && context.revision == null) {
+        throw const StorefrontConfigurationException(
+          'A cart revision is required to resume an ordering session.',
+        );
+      }
+      final response = await _transport.send<StartOrderingSessionResult>(
+        method: method,
+        pathSegments: ['locations', locationId, 'ordering-sessions'],
+        routeTemplate: routeTemplate,
+        authorization: existingCartId is String
+            ? StorefrontAuthorization.cart
+            : StorefrontAuthorization.optionalCustomer,
+        cartToken: context.accessToken,
+        idempotencyKey: context.idempotencyKey,
+        revision: existingCartId is String && context.revision != null
+            ? StorefrontRevision.cart(context.revision!)
+            : null,
+        body: payload,
+        decoder: (value) =>
+            StartOrderingSessionResult.fromJson(decodeJsonObject(value)),
+        timeout: operation.remaining,
+        cancellationToken: operation.cancellationToken,
+      );
+      final result = response.data;
+      if (result.cart.locationId != locationId ||
+          (existingCartId is String && result.cart.id != existingCartId)) {
+        throw StorefrontDecodingException(
+          method: method,
+          routeTemplate: routeTemplate,
+          retryIdempotencyKey: context.idempotencyKey,
+        );
+      }
+      final etagRevision = parseCartRevision(response.etag);
+      if (etagRevision == null || etagRevision != result.cart.revision) {
+        throw StorefrontDecodingException(
+          method: method,
+          routeTemplate: routeTemplate,
+          retryIdempotencyKey: context.idempotencyKey,
+        );
+      }
+      await operation.waitForSession(
+        _cartRuntime.capture(
+          locationId: locationId,
+          cartId: result.cart.id,
+          accessToken: result.cartAccessToken,
+          revision: etagRevision,
+          expiresAt: result.cart.expiresAt == null
+              ? null
+              : DateTime.tryParse(result.cart.expiresAt!),
+        ),
+        operationMayHaveSucceeded: true,
+        retryIdempotencyKey: context.idempotencyKey,
+      );
+      return result;
+    }
+
+    return existingCartId is String
+        ? _cartRuntime.serializeCartOperation(
             locationId: locationId,
             cartId: existingCartId,
-            idempotent: true,
-            revisionRequired: true,
-            options: options,
+            waitForPrevious: operation.wait,
+            operation: send,
           )
-        : await _cartRuntime.contextFor(
-            locationId: locationId,
-            cartId: '__new_cart__',
-            idempotent: true,
-            revisionRequired: false,
-            options: options,
-          );
-    if (existingCartId is String && context.revision == null) {
-      throw const StorefrontConfigurationException(
-        'A cart revision is required to resume an ordering session.',
-      );
-    }
-    final response = await _transport.send<StartOrderingSessionResult>(
-      method: 'POST',
-      pathSegments: ['locations', locationId, 'ordering-sessions'],
-      routeTemplate: '/locations/:locationId/ordering-sessions',
-      authorization: existingCartId is String
-          ? StorefrontAuthorization.cart
-          : StorefrontAuthorization.optionalCustomer,
-      cartToken: context.accessToken,
-      idempotencyKey: context.idempotencyKey,
-      revision: existingCartId is String && context.revision != null
-          ? StorefrontRevision.cart(context.revision!)
-          : null,
-      body: payload,
-      decoder: (value) =>
-          StartOrderingSessionResult.fromJson(decodeJsonObject(value)),
-      timeout: options?.timeout,
-      cancellationToken: options?.cancellationToken,
-    );
-    final result = response.data;
-    await _cartRuntime.capture(
-      locationId: locationId,
-      cartId: result.cart.id,
-      accessToken: result.cartAccessToken,
-      revision: parseCartRevision(response.etag) ?? result.cart.revision,
-      expiresAt: result.cart.expiresAt == null
-          ? null
-          : DateTime.tryParse(result.cart.expiresAt!),
-    );
-    return result;
+        : send();
   }
 }
 
 /// Best-effort public Storefront analytics operations.
 final class AnalyticsEventsClient {
-  const AnalyticsEventsClient(this._transport, this._cartRuntime);
+  const AnalyticsEventsClient._(this._transport, this._cartRuntime);
 
   final StorefrontTransport _transport;
   final CartSessionRuntime _cartRuntime;
@@ -111,25 +178,36 @@ final class AnalyticsEventsClient {
     AnalyticsEventRequest event, {
     StorefrontRequestOptions? options,
   }) async {
-    final context = await _cartRuntime.contextFor(
-      locationId: locationId,
-      cartId: event.cartId,
-      idempotent: true,
-      revisionRequired: false,
+    const method = 'POST';
+    const routeTemplate = '/locations/:locationId/analytics-events';
+    final operation = StorefrontOperationContext(
+      defaultTimeout: _transport.defaultTimeout,
+      method: method,
+      routeTemplate: routeTemplate,
       options: options,
     );
+    final context = await operation.waitForSession(
+      _cartRuntime.contextFor(
+        locationId: locationId,
+        cartId: event.cartId,
+        idempotent: true,
+        revisionRequired: false,
+        options: options,
+      ),
+      operationMayHaveSucceeded: false,
+    );
     final response = await _transport.send<AnalyticsEventResult>(
-      method: 'POST',
+      method: method,
       pathSegments: ['locations', locationId, 'analytics-events'],
-      routeTemplate: '/locations/:locationId/analytics-events',
+      routeTemplate: routeTemplate,
       authorization: StorefrontAuthorization.cart,
       cartToken: context.accessToken,
       idempotencyKey: context.idempotencyKey,
       body: event.toJson(),
       decoder: (value) =>
           AnalyticsEventResult.fromJson(decodeJsonObject(value)),
-      timeout: options?.timeout,
-      cancellationToken: options?.cancellationToken,
+      timeout: operation.remaining,
+      cancellationToken: operation.cancellationToken,
     );
     return response.data;
   }
@@ -137,7 +215,7 @@ final class AnalyticsEventsClient {
 
 /// Cart, item, discount, fulfillment, and claim operations.
 final class CartsClient {
-  CartsClient(StorefrontTransport transport, this._cartRuntime)
+  CartsClient._(StorefrontTransport transport, this._cartRuntime)
       : _requests = CartResourceRequests(transport, _cartRuntime);
 
   final CartSessionRuntime _cartRuntime;
@@ -170,9 +248,9 @@ final class CartsClient {
         suffix: const ['products'],
         routeTemplate: '/locations/:locationId/carts/:cartId/products',
         persistRevision: true,
-        decoder: (value) => decodeJsonObjectList(value)
-            .map(CartRecommendation.fromJson)
-            .toList(growable: false),
+        decoder: (value) => List<CartRecommendation>.unmodifiable(
+          decodeJsonObjectList(value).map(CartRecommendation.fromJson),
+        ),
         options: options,
       );
 
@@ -198,19 +276,19 @@ final class CartsClient {
     String locationId,
     String cartId, {
     StorefrontRequestOptions? options,
-  }) async {
-    final cart = await _cart(
-      method: 'DELETE',
-      locationId: locationId,
-      cartId: cartId,
-      routeTemplate: '/locations/:locationId/carts/:cartId',
-      body: const <String, Object?>{},
-      mutation: true,
-      options: options,
-    );
-    await _cartRuntime.clear(locationId: locationId, cartId: cartId);
-    return cart;
-  }
+  }) =>
+      _cart(
+        method: 'DELETE',
+        locationId: locationId,
+        cartId: cartId,
+        routeTemplate: '/locations/:locationId/carts/:cartId',
+        body: const <String, Object?>{},
+        mutation: true,
+        allowExpiredSession: true,
+        afterSuccess: () =>
+            _cartRuntime.clear(locationId: locationId, cartId: cartId),
+        options: options,
+      );
 
   /// Validates customer contact details and updates the cart.
   Future<StorefrontCart> validateForCheckout(
@@ -353,7 +431,7 @@ final class CartsClient {
     String cartId, {
     StorefrontRequestOptions? options,
   }) async {
-    final cart = await _cartMutation(
+    return _cartMutation(
       method: 'POST',
       locationId: locationId,
       cartId: cartId,
@@ -361,13 +439,12 @@ final class CartsClient {
       routeSuffix: '/claim',
       body: const <String, Object?>{},
       authorization: StorefrontAuthorization.cartAndCustomer,
+      afterSuccess: () => _cartRuntime.removeCapability(
+        locationId: locationId,
+        cartId: cartId,
+      ),
       options: options,
     );
-    await _cartRuntime.removeCapability(
-      locationId: locationId,
-      cartId: cartId,
-    );
-    return cart;
   }
 
   /// Adds a configured product to a cart.
@@ -429,6 +506,7 @@ final class CartsClient {
     required String routeSuffix,
     Object? body,
     StorefrontAuthorization authorization = StorefrontAuthorization.cart,
+    Future<void> Function()? afterSuccess,
     StorefrontRequestOptions? options,
   }) =>
       _cart(
@@ -440,6 +518,7 @@ final class CartsClient {
         body: body,
         authorization: authorization,
         mutation: true,
+        afterSuccess: afterSuccess,
         options: options,
       );
 
@@ -452,6 +531,8 @@ final class CartsClient {
     Object? body,
     StorefrontAuthorization authorization = StorefrontAuthorization.cart,
     bool mutation = false,
+    bool allowExpiredSession = false,
+    Future<void> Function()? afterSuccess,
     StorefrontRequestOptions? options,
   }) =>
       _requests.send<StorefrontCart>(
@@ -466,6 +547,15 @@ final class CartsClient {
         revisionRequired: mutation,
         persistRevision: true,
         refreshOnConflict: mutation,
+        allowExpiredSession: allowExpiredSession,
+        validateResponse: (cart) => validateCartResponseIdentity(
+          cart,
+          locationId: locationId,
+          cartId: cartId,
+          method: method,
+          routeTemplate: routeTemplate,
+        ),
+        afterSuccess: afterSuccess,
         revisionFallback: (cart) => cart.revision,
         decoder: (value) => StorefrontCart.fromJson(decodeJsonObject(value)),
         options: options,

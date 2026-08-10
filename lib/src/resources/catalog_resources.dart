@@ -6,9 +6,28 @@ import '../models/merchant.dart';
 import '../runtime/request_runtime.dart';
 import 'resource_support.dart';
 
+/// Creates merchant resources for the package facade.
+MerchantsClient createMerchantsClient(
+  StorefrontTransport transport,
+  String merchantSlug,
+) =>
+    MerchantsClient._(transport, merchantSlug);
+
+/// Creates location resources for the package facade.
+LocationsClient createLocationsClient(StorefrontTransport transport) =>
+    LocationsClient._(transport);
+
+/// Creates menu resources for the package facade.
+MenusClient createMenusClient(StorefrontTransport transport) =>
+    MenusClient._(transport);
+
+/// Creates product resources for the package facade.
+ProductsClient createProductsClient(StorefrontTransport transport) =>
+    ProductsClient._(transport);
+
 /// Published merchant discovery operations.
 final class MerchantsClient {
-  const MerchantsClient(this._transport, this._merchantSlug);
+  const MerchantsClient._(this._transport, this._merchantSlug);
 
   final StorefrontTransport _transport;
   final String _merchantSlug;
@@ -30,7 +49,7 @@ final class MerchantsClient {
 
 /// Published location and availability operations.
 final class LocationsClient {
-  const LocationsClient(this._transport);
+  const LocationsClient._(this._transport);
 
   final StorefrontTransport _transport;
 
@@ -108,7 +127,7 @@ final class LocationsClient {
 
 /// Published location-menu operations.
 final class MenusClient {
-  const MenusClient(this._transport);
+  const MenusClient._(this._transport);
 
   final StorefrontTransport _transport;
 
@@ -148,7 +167,7 @@ final class MenusClient {
 
 /// Published location-product operations.
 final class ProductsClient {
-  const ProductsClient(this._transport);
+  const ProductsClient._(this._transport);
 
   final StorefrontTransport _transport;
 

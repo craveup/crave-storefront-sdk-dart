@@ -27,6 +27,7 @@ final class StorefrontApiException extends StorefrontException {
     required this.routeTemplate,
     this.requestId,
     this.details,
+    this.retryIdempotencyKey,
   });
 
   /// HTTP status returned by the API.
@@ -50,6 +51,12 @@ final class StorefrontApiException extends StorefrontException {
   /// Parameterized route template; never a resolved URL.
   final String routeTemplate;
 
+  /// Stable key to reuse only after an ambiguous server-side failure.
+  ///
+  /// This value is deliberately excluded from [toString] and is absent for
+  /// deterministic rejections such as validation or cart conflicts.
+  final String? retryIdempotencyKey;
+
   /// Whether the failure represents a stale cart revision.
   bool get isCartConflict => code == 'CART_CONFLICT';
 
@@ -65,6 +72,7 @@ final class StorefrontTimeoutException extends StorefrontException {
     required this.method,
     required this.routeTemplate,
     required this.timeout,
+    this.retryIdempotencyKey,
   });
 
   /// HTTP method for the timed-out operation.
@@ -75,6 +83,12 @@ final class StorefrontTimeoutException extends StorefrontException {
 
   /// Deadline that elapsed.
   final Duration timeout;
+
+  /// Stable key to reuse only when replaying the same logical operation.
+  ///
+  /// This value is present only when the interrupted request was idempotent
+  /// and is deliberately excluded from [toString].
+  final String? retryIdempotencyKey;
 
   @override
   String toString() =>
@@ -88,6 +102,7 @@ final class StorefrontRequestCancelledException extends StorefrontException {
   const StorefrontRequestCancelledException({
     required this.method,
     required this.routeTemplate,
+    this.retryIdempotencyKey,
   });
 
   /// HTTP method for the cancelled operation.
@@ -95,6 +110,12 @@ final class StorefrontRequestCancelledException extends StorefrontException {
 
   /// Parameterized route template; never a resolved URL.
   final String routeTemplate;
+
+  /// Stable key to reuse only when replaying the same logical operation.
+  ///
+  /// This value is present only when the interrupted request was idempotent
+  /// and is deliberately excluded from [toString].
+  final String? retryIdempotencyKey;
 
   @override
   String toString() =>
@@ -107,6 +128,7 @@ final class StorefrontNetworkException extends StorefrontException {
   const StorefrontNetworkException({
     required this.method,
     required this.routeTemplate,
+    this.retryIdempotencyKey,
   });
 
   /// HTTP method for the failed operation.
@@ -115,8 +137,44 @@ final class StorefrontNetworkException extends StorefrontException {
   /// Parameterized route template; never a resolved URL.
   final String routeTemplate;
 
+  /// Stable key to reuse only when replaying the same logical operation.
+  ///
+  /// This value is present only when the interrupted request was idempotent
+  /// and is deliberately excluded from [toString].
+  final String? retryIdempotencyKey;
+
   @override
   String toString() => 'StorefrontNetworkException: $method $routeTemplate';
+}
+
+/// Indicates a caller-owned session store failed during an SDK operation.
+final class StorefrontSessionException extends StorefrontException {
+  /// Creates a redaction-safe session-storage failure.
+  const StorefrontSessionException({
+    required this.method,
+    required this.routeTemplate,
+    required this.operationMayHaveSucceeded,
+    this.retryIdempotencyKey,
+  });
+
+  /// HTTP method for the affected Storefront operation.
+  final String method;
+
+  /// Parameterized route template; never a resolved URL.
+  final String routeTemplate;
+
+  /// Whether a valid API response arrived before session persistence failed.
+  final bool operationMayHaveSucceeded;
+
+  /// Stable key to reuse only when replaying the same logical operation.
+  ///
+  /// This value is deliberately excluded from [toString].
+  final String? retryIdempotencyKey;
+
+  @override
+  String toString() => 'StorefrontSessionException: session storage failed '
+      '${operationMayHaveSucceeded ? 'after' : 'before'} the API response '
+      '[$method $routeTemplate]';
 }
 
 /// Indicates that a successful API response did not match its JSON contract.
@@ -125,6 +183,7 @@ final class StorefrontDecodingException extends StorefrontException {
   const StorefrontDecodingException({
     required this.method,
     required this.routeTemplate,
+    this.retryIdempotencyKey,
   });
 
   /// HTTP method for the operation.
@@ -132,6 +191,12 @@ final class StorefrontDecodingException extends StorefrontException {
 
   /// Parameterized route template; never a resolved URL.
   final String routeTemplate;
+
+  /// Stable key to reuse only when replaying the same logical operation.
+  ///
+  /// This value is present only when a malformed success response followed an
+  /// idempotent request and is deliberately excluded from [toString].
+  final String? retryIdempotencyKey;
 
   @override
   String toString() => 'StorefrontDecodingException: $method $routeTemplate';

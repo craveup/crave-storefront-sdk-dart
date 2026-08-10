@@ -46,7 +46,7 @@ final class CheckoutExchangeResult {
   factory CheckoutExchangeResult.fromJson(Map<String, Object?> json) {
     final reader = JsonReader.fromObject(json, context: 'checkoutExchange');
     return CheckoutExchangeResult(
-      cart: StorefrontCart.fromReader(reader.object('cart')),
+      cart: StorefrontCart.fromJson(reader.object('cart').asMap()),
       cartAccessToken: reader.string('cartAccessToken'),
       merchantSlug: reader.string('merchantSlug'),
     );
@@ -89,7 +89,7 @@ sealed class OrderResult {
       'payment_pending' => const PaymentPendingOrderResult(),
       'order_pending' => const OrderPendingOrderResult(),
       'completed' => CompletedOrderResult(
-          PublicOrderDetail.fromReader(reader.object('order')),
+          PublicOrderDetail.fromJson(reader.object('order').asMap()),
         ),
       'failed' => FailedOrderResult(reader.string('code')),
       _ => UnknownOrderResult(state),
@@ -169,8 +169,14 @@ final class RatingResult {
   /// Decodes a rating response.
   factory RatingResult.fromJson(Map<String, Object?> json) {
     final reader = JsonReader.fromObject(json, context: 'rating');
+    final success = reader.boolean('success');
+    if (!success) {
+      throw const FormatException(
+        'Invalid JSON at rating.success: expected true.',
+      );
+    }
     return RatingResult(
-      success: reader.boolean('success'),
+      success: success,
       id: reader.string('id'),
     );
   }

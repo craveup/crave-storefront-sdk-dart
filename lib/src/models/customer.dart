@@ -3,20 +3,13 @@ import '../json/json_reader.dart';
 /// Starts customer authentication for a merchant.
 final class CustomerLoginRequest {
   /// Creates an immutable login request.
-  const CustomerLoginRequest({
-    required this.merchantSlug,
-    required this.identifierString,
-  });
-
-  /// Canonical merchant slug.
-  final String merchantSlug;
+  const CustomerLoginRequest({required this.identifierString});
 
   /// Customer email address or phone number.
   final String identifierString;
 
   /// Serializes only fields accepted by the login endpoint.
   Map<String, Object?> toJson() => <String, Object?>{
-        'merchantSlug': merchantSlug,
         'identifierString': identifierString,
       };
 }
@@ -46,7 +39,6 @@ final class LoginChallenge {
 final class VerifyOtpRequest {
   /// Creates a validated one-time-passcode request.
   VerifyOtpRequest({
-    required this.merchantSlug,
     required this.identifierString,
     required this.methodId,
     required this.otp,
@@ -57,9 +49,6 @@ final class VerifyOtpRequest {
       throw ArgumentError('otp must contain exactly six digits.');
     }
   }
-
-  /// Canonical merchant slug.
-  final String merchantSlug;
 
   /// Customer email address or phone number.
   final String identifierString;
@@ -78,7 +67,6 @@ final class VerifyOtpRequest {
 
   /// Serializes only fields accepted by the verification endpoint.
   Map<String, Object?> toJson() => <String, Object?>{
-        'merchantSlug': merchantSlug,
         'identifierString': identifierString,
         'methodId': methodId,
         'otp': otp,
@@ -325,12 +313,11 @@ final class PublicOrderSummary {
 
   /// Decodes an order summary.
   factory PublicOrderSummary.fromJson(Map<String, Object?> json) =>
-      PublicOrderSummary.fromReader(
+      PublicOrderSummary._fromReader(
         JsonReader.fromObject(json, context: 'orderSummary'),
       );
 
-  /// Decodes an order summary from an existing reader.
-  factory PublicOrderSummary.fromReader(JsonReader reader) =>
+  factory PublicOrderSummary._fromReader(JsonReader reader) =>
       PublicOrderSummary(
         id: reader.string('id'),
         shortId: reader.string('shortId'),
@@ -390,7 +377,7 @@ final class PublicOrderSummary {
 /// Full customer-visible order details.
 final class PublicOrderDetail {
   /// Creates immutable public order details.
-  const PublicOrderDetail({
+  PublicOrderDetail({
     required this.id,
     required this.shortId,
     required this.restaurantDisplayName,
@@ -405,23 +392,22 @@ final class PublicOrderDetail {
     required this.status,
     required this.createdAt,
     required this.partiallyRefunded,
-    required this.items,
+    required Iterable<PublicOrderItem> items,
     required this.pricing,
     this.deliveryInfo,
     this.roomServiceInfo,
     this.tableServiceInfo,
     this.payment,
     this.updatedAt,
-  });
+  }) : items = List<PublicOrderItem>.unmodifiable(items);
 
   /// Decodes public order details.
   factory PublicOrderDetail.fromJson(Map<String, Object?> json) =>
-      PublicOrderDetail.fromReader(
+      PublicOrderDetail._fromReader(
         JsonReader.fromObject(json, context: 'orderDetail'),
       );
 
-  /// Decodes public order details from an existing reader.
-  factory PublicOrderDetail.fromReader(JsonReader reader) {
+  factory PublicOrderDetail._fromReader(JsonReader reader) {
     final delivery = reader.nullableObject('deliveryInfo');
     final room = reader.nullableObject('roomServiceInfo');
     final table = reader.nullableObject('tableServiceInfo');
@@ -441,18 +427,17 @@ final class PublicOrderDetail {
       status: reader.string('status'),
       createdAt: reader.timestamp('createdAt'),
       partiallyRefunded: reader.boolean('partiallyRefunded'),
-      items: List<PublicOrderItem>.unmodifiable(
-        reader.optionalObjectList('items').map(PublicOrderItem.fromReader),
-      ),
-      pricing: PublicOrderPricing.fromReader(reader.object('pricing')),
+      items:
+          reader.optionalObjectList('items').map(PublicOrderItem._fromReader),
+      pricing: PublicOrderPricing._fromReader(reader.object('pricing')),
       deliveryInfo: delivery == null
           ? null
-          : PublicOrderDeliveryInfo.fromReader(delivery),
+          : PublicOrderDeliveryInfo._fromReader(delivery),
       roomServiceInfo:
-          room == null ? null : PublicOrderRoomServiceInfo.fromReader(room),
+          room == null ? null : PublicOrderRoomServiceInfo._fromReader(room),
       tableServiceInfo:
-          table == null ? null : PublicOrderTableServiceInfo.fromReader(table),
-      payment: payment == null ? null : PublicOrderPayment.fromReader(payment),
+          table == null ? null : PublicOrderTableServiceInfo._fromReader(table),
+      payment: payment == null ? null : PublicOrderPayment._fromReader(payment),
       updatedAt: reader.nullableTimestamp('updatedAt'),
     );
   }
@@ -524,7 +509,7 @@ final class PublicOrderDetail {
 /// A customer-visible order item.
 final class PublicOrderItem {
   /// Creates an immutable public order item.
-  const PublicOrderItem({
+  PublicOrderItem({
     required this.id,
     required this.name,
     required this.quantity,
@@ -532,11 +517,16 @@ final class PublicOrderItem {
     required this.total,
     required this.discount,
     required this.specialInstructions,
-    required this.modifiers,
-  });
+    required Iterable<PublicOrderModifier> modifiers,
+  }) : modifiers = List<PublicOrderModifier>.unmodifiable(modifiers);
 
-  /// Decodes an order item from an existing reader.
-  factory PublicOrderItem.fromReader(JsonReader reader) => PublicOrderItem(
+  /// Decodes a customer-visible order item.
+  factory PublicOrderItem.fromJson(Map<String, Object?> json) =>
+      PublicOrderItem._fromReader(
+        JsonReader.fromObject(json, context: 'publicOrderItem'),
+      );
+
+  factory PublicOrderItem._fromReader(JsonReader reader) => PublicOrderItem(
         id: reader.string('id'),
         name: reader.string('name'),
         quantity: reader.integer('quantity'),
@@ -544,11 +534,9 @@ final class PublicOrderItem {
         total: reader.string('total'),
         discount: reader.string('discount'),
         specialInstructions: reader.string('specialInstructions'),
-        modifiers: List<PublicOrderModifier>.unmodifiable(
-          reader
-              .optionalObjectList('modifiers')
-              .map(PublicOrderModifier.fromReader),
-        ),
+        modifiers: reader
+            .optionalObjectList('modifiers')
+            .map(PublicOrderModifier._fromReader),
       );
 
   /// Stable order-item identifier.
@@ -586,8 +574,13 @@ final class PublicOrderModifier {
     required this.price,
   });
 
-  /// Decodes an order modifier from an existing reader.
-  factory PublicOrderModifier.fromReader(JsonReader reader) =>
+  /// Decodes a customer-visible order modifier.
+  factory PublicOrderModifier.fromJson(Map<String, Object?> json) =>
+      PublicOrderModifier._fromReader(
+        JsonReader.fromObject(json, context: 'publicOrderModifier'),
+      );
+
+  factory PublicOrderModifier._fromReader(JsonReader reader) =>
       PublicOrderModifier(
         groupName: reader.string('groupName'),
         name: reader.string('name'),
@@ -624,8 +617,13 @@ final class PublicOrderPricing {
     required this.netPaid,
   });
 
-  /// Decodes pricing from an existing reader.
-  factory PublicOrderPricing.fromReader(JsonReader reader) =>
+  /// Decodes customer-visible order pricing.
+  factory PublicOrderPricing.fromJson(Map<String, Object?> json) =>
+      PublicOrderPricing._fromReader(
+        JsonReader.fromObject(json, context: 'publicOrderPricing'),
+      );
+
+  factory PublicOrderPricing._fromReader(JsonReader reader) =>
       PublicOrderPricing(
         subtotal: reader.string('subtotal'),
         discount: reader.string('discount'),
@@ -675,8 +673,13 @@ final class PublicOrderPayment {
   /// Creates immutable redacted payment details.
   const PublicOrderPayment({this.cardLast4, this.walletType, this.cardBrand});
 
-  /// Decodes payment details from an existing reader.
-  factory PublicOrderPayment.fromReader(JsonReader reader) =>
+  /// Decodes redacted order payment details.
+  factory PublicOrderPayment.fromJson(Map<String, Object?> json) =>
+      PublicOrderPayment._fromReader(
+        JsonReader.fromObject(json, context: 'publicOrderPayment'),
+      );
+
+  factory PublicOrderPayment._fromReader(JsonReader reader) =>
       PublicOrderPayment(
         cardLast4: reader.nullableString('cardLast4'),
         walletType: reader.nullableString('walletType'),
@@ -698,8 +701,13 @@ final class PublicOrderDeliveryInfo {
   /// Creates immutable delivery details.
   const PublicOrderDeliveryInfo({this.deliveryAddress});
 
-  /// Decodes delivery details from an existing reader.
-  factory PublicOrderDeliveryInfo.fromReader(JsonReader reader) =>
+  /// Decodes public order delivery details.
+  factory PublicOrderDeliveryInfo.fromJson(Map<String, Object?> json) =>
+      PublicOrderDeliveryInfo._fromReader(
+        JsonReader.fromObject(json, context: 'publicOrderDeliveryInfo'),
+      );
+
+  factory PublicOrderDeliveryInfo._fromReader(JsonReader reader) =>
       PublicOrderDeliveryInfo(
         deliveryAddress: reader.nullableString('deliveryAddress'),
       );
@@ -713,8 +721,13 @@ final class PublicOrderRoomServiceInfo {
   /// Creates immutable room-service details.
   const PublicOrderRoomServiceInfo({this.lastName, this.roomNumber});
 
-  /// Decodes room-service details from an existing reader.
-  factory PublicOrderRoomServiceInfo.fromReader(JsonReader reader) =>
+  /// Decodes public order room-service details.
+  factory PublicOrderRoomServiceInfo.fromJson(Map<String, Object?> json) =>
+      PublicOrderRoomServiceInfo._fromReader(
+        JsonReader.fromObject(json, context: 'publicOrderRoomServiceInfo'),
+      );
+
+  factory PublicOrderRoomServiceInfo._fromReader(JsonReader reader) =>
       PublicOrderRoomServiceInfo(
         lastName: reader.nullableString('lastName'),
         roomNumber: reader.nullableString('roomNumber'),
@@ -732,8 +745,13 @@ final class PublicOrderTableServiceInfo {
   /// Creates immutable table-service details.
   const PublicOrderTableServiceInfo({this.tableNumber});
 
-  /// Decodes table-service details from an existing reader.
-  factory PublicOrderTableServiceInfo.fromReader(JsonReader reader) =>
+  /// Decodes public order table-service details.
+  factory PublicOrderTableServiceInfo.fromJson(Map<String, Object?> json) =>
+      PublicOrderTableServiceInfo._fromReader(
+        JsonReader.fromObject(json, context: 'publicOrderTableServiceInfo'),
+      );
+
+  factory PublicOrderTableServiceInfo._fromReader(JsonReader reader) =>
       PublicOrderTableServiceInfo(
         tableNumber: reader.nullableString('tableNumber'),
       );

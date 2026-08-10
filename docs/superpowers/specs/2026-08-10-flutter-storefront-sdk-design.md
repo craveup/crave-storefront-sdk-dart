@@ -114,6 +114,8 @@ All requests pass through one internal transport.
 - Every mutation that the API marks idempotent receives a 16–128 character safe key. A caller may
   supply a stable key; otherwise the SDK creates a cryptographically random key once per call.
 - Cart mutations send `If-Match: "cart-N"`. Address updates send `If-Match: "address-N"`.
+- Operations declared to return a resource ETag require a parseable header and verify it against
+  the typed response revision before persisting state.
 - Mutations are never retried implicitly. On `CART_CONFLICT`, the SDK may refresh the stored revision
   with one safe GET, but it rethrows the original conflict for caller reconciliation.
 - `http.AbortableRequest` combines caller cancellation and timeout. Timeout and cancellation have
@@ -137,6 +139,9 @@ Ordering-session creation captures a newly returned cart capability and revision
 identical starts share one in-flight request and one idempotency key. Cart updates persist newer
 ETag revisions. Deletion clears the session. Successful guest-cart claim removes the capability but
 retains cart/revision for customer-JWT continuation. Failed operations do not discard recovery data.
+The full request and storage lifecycle is serialized per scoped cart—including resume and handoff
+exchange—so an older response cannot restore state after a later cleanup. Different carts remain
+independent, and an operation that expires while queued never sends a late request.
 
 ## Models and decoding
 
@@ -163,10 +168,12 @@ The sealed public hierarchy is:
 - `StorefrontTimeoutException`;
 - `StorefrontRequestCancelledException`;
 - `StorefrontNetworkException` with a safe cause category, not the raw URL-bearing exception;
+- `StorefrontSessionException` for redacted caller-owned storage failures;
 - `StorefrontDecodingException` for an invalid success payload;
 - `StorefrontConfigurationException` for invalid local inputs.
 
-Error `toString()` implementations are redaction-safe and covered by hostile-value tests.
+Ambiguous idempotent failures expose a caller-recoverable `retryIdempotencyKey` that is excluded from
+`toString()`. Error strings are redaction-safe and covered by hostile-value tests.
 
 ## Verification
 
@@ -175,8 +182,8 @@ Required before the first tag:
 1. format, fatal-info analysis, complete unit tests, and generated API docs;
 2. exact 50-operation route/auth/idempotency/revision manifest parity and 49 typed JSON methods;
 3. hostile URL/header, redirect, cancellation, timeout, invalid JSON, and redaction tests;
-4. cart capability, ETag conflict refresh, claim, deletion, merchant/origin isolation, and concurrent
-   ordering-session tests;
+4. cart capability, ETag conflict refresh, claim, deletion, merchant/origin isolation, same-cart
+   lifecycle ordering, queued expiry, and concurrent ordering-session tests;
 5. request/response fixture tests from sanitized runtime route examples;
 6. minimum Dart 3.4 and current stable CI;
 7. a clean Flutter consumer compile/test on current stable;

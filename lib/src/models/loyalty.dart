@@ -3,14 +3,14 @@ import '../json/json_reader.dart';
 /// Loyalty availability and rewards for a cart.
 final class LoyaltyQuote {
   /// Creates an immutable loyalty quote.
-  const LoyaltyQuote({
+  LoyaltyQuote({
     required this.enabled,
-    required this.rewards,
+    required Iterable<LoyaltyReward> rewards,
     this.available,
     this.pointsToEarn,
     this.balance,
     this.appliedRewardId,
-  });
+  }) : rewards = List<LoyaltyReward>.unmodifiable(rewards);
 
   /// Decodes a loyalty quote.
   factory LoyaltyQuote.fromJson(Map<String, Object?> json) {
@@ -20,10 +20,10 @@ final class LoyaltyQuote {
       enabled: reader.boolean('enabled'),
       available: reader.nullableBoolean('available'),
       pointsToEarn: reader.nullableNumber('pointsToEarn'),
-      balance: balance == null ? null : LoyaltyPointBalance.fromReader(balance),
-      rewards: List<LoyaltyReward>.unmodifiable(
-        reader.optionalObjectList('rewards').map(LoyaltyReward.fromReader),
-      ),
+      balance:
+          balance == null ? null : LoyaltyPointBalance._fromReader(balance),
+      rewards:
+          reader.optionalObjectList('rewards').map(LoyaltyReward._fromReader),
       appliedRewardId: reader.nullableString('appliedRewardId'),
     );
   }
@@ -56,8 +56,13 @@ final class LoyaltyPointBalance {
     required this.reserved,
   });
 
-  /// Decodes a point balance from an existing reader.
-  factory LoyaltyPointBalance.fromReader(JsonReader reader) =>
+  /// Decodes a loyalty point balance.
+  factory LoyaltyPointBalance.fromJson(Map<String, Object?> json) =>
+      LoyaltyPointBalance._fromReader(
+        JsonReader.fromObject(json, context: 'loyaltyPointBalance'),
+      );
+
+  factory LoyaltyPointBalance._fromReader(JsonReader reader) =>
       LoyaltyPointBalance(
         posted: reader.number('posted'),
         available: reader.number('available'),
@@ -77,18 +82,23 @@ final class LoyaltyPointBalance {
 /// A loyalty reward quoted for a cart.
 final class LoyaltyReward {
   /// Creates an immutable loyalty reward.
-  const LoyaltyReward({
+  LoyaltyReward({
     required this.id,
     required this.name,
     required this.status,
-    required this.unavailableReasons,
+    required Iterable<String> unavailableReasons,
     required this.pointsCost,
     required this.redeemable,
     this.amountOff,
-  });
+  }) : unavailableReasons = List<String>.unmodifiable(unavailableReasons);
 
-  /// Decodes a loyalty reward from an existing reader.
-  factory LoyaltyReward.fromReader(JsonReader reader) => LoyaltyReward(
+  /// Decodes a loyalty reward.
+  factory LoyaltyReward.fromJson(Map<String, Object?> json) =>
+      LoyaltyReward._fromReader(
+        JsonReader.fromObject(json, context: 'loyaltyReward'),
+      );
+
+  factory LoyaltyReward._fromReader(JsonReader reader) => LoyaltyReward(
         id: reader.string('id'),
         name: reader.string('name'),
         status: reader.string('status'),
@@ -135,26 +145,25 @@ final class RedeemLoyaltyRequest {
 /// Customer loyalty balances and ledger entries.
 final class LoyaltyLedger {
   /// Creates an immutable loyalty ledger.
-  const LoyaltyLedger({
+  LoyaltyLedger({
     required this.enabled,
-    required this.balances,
-    required this.entries,
+    required Iterable<LoyaltyLedgerBalance> balances,
+    required Iterable<LoyaltyLedgerEntry> entries,
     this.nextCursor,
-  });
+  })  : balances = List<LoyaltyLedgerBalance>.unmodifiable(balances),
+        entries = List<LoyaltyLedgerEntry>.unmodifiable(entries);
 
   /// Decodes a loyalty ledger.
   factory LoyaltyLedger.fromJson(Map<String, Object?> json) {
     final reader = JsonReader.fromObject(json, context: 'loyaltyLedger');
     return LoyaltyLedger(
       enabled: reader.boolean('enabled'),
-      balances: List<LoyaltyLedgerBalance>.unmodifiable(
-        reader
-            .optionalObjectList('balances')
-            .map(LoyaltyLedgerBalance.fromReader),
-      ),
-      entries: List<LoyaltyLedgerEntry>.unmodifiable(
-        reader.optionalObjectList('entries').map(LoyaltyLedgerEntry.fromReader),
-      ),
+      balances: reader
+          .optionalObjectList('balances')
+          .map(LoyaltyLedgerBalance._fromReader),
+      entries: reader
+          .optionalObjectList('entries')
+          .map(LoyaltyLedgerEntry._fromReader),
       nextCursor: reader.nullableString('nextCursor'),
     );
   }
@@ -184,8 +193,13 @@ final class LoyaltyLedgerBalance {
     this.label,
   });
 
-  /// Decodes a ledger balance from an existing reader.
-  factory LoyaltyLedgerBalance.fromReader(JsonReader reader) =>
+  /// Decodes a loyalty ledger balance.
+  factory LoyaltyLedgerBalance.fromJson(Map<String, Object?> json) =>
+      LoyaltyLedgerBalance._fromReader(
+        JsonReader.fromObject(json, context: 'loyaltyLedgerBalance'),
+      );
+
+  factory LoyaltyLedgerBalance._fromReader(JsonReader reader) =>
       LoyaltyLedgerBalance(
         unit: reader.string('unit'),
         label: reader.nullableString('label'),
@@ -227,8 +241,13 @@ final class LoyaltyLedgerEntry {
     this.expiresAt,
   });
 
-  /// Decodes a ledger entry from an existing reader.
-  factory LoyaltyLedgerEntry.fromReader(JsonReader reader) =>
+  /// Decodes a loyalty ledger entry.
+  factory LoyaltyLedgerEntry.fromJson(Map<String, Object?> json) =>
+      LoyaltyLedgerEntry._fromReader(
+        JsonReader.fromObject(json, context: 'loyaltyLedgerEntry'),
+      );
+
+  factory LoyaltyLedgerEntry._fromReader(JsonReader reader) =>
       LoyaltyLedgerEntry(
         operation: reader.string('operation'),
         amount: reader.number('amount'),
@@ -315,12 +334,11 @@ final class LoyaltyClaimSubmission {
 
   /// Decodes a claim-submission response.
   factory LoyaltyClaimSubmission.fromJson(Map<String, Object?> json) =>
-      LoyaltyClaimSubmission.fromReader(
+      LoyaltyClaimSubmission._fromReader(
         JsonReader.fromObject(json, context: 'loyaltyClaimSubmission'),
       );
 
-  /// Decodes a claim submission from an existing reader.
-  factory LoyaltyClaimSubmission.fromReader(JsonReader reader) =>
+  factory LoyaltyClaimSubmission._fromReader(JsonReader reader) =>
       LoyaltyClaimSubmission(
         claimId: reader.string('claimId'),
         status: reader.string('status'),
@@ -350,8 +368,13 @@ final class LoyaltyClaim {
     this.points,
   });
 
-  /// Decodes a loyalty claim from an existing reader.
-  factory LoyaltyClaim.fromReader(JsonReader reader) => LoyaltyClaim(
+  /// Decodes a customer-visible loyalty claim.
+  factory LoyaltyClaim.fromJson(Map<String, Object?> json) =>
+      LoyaltyClaim._fromReader(
+        JsonReader.fromObject(json, context: 'loyaltyClaim'),
+      );
+
+  factory LoyaltyClaim._fromReader(JsonReader reader) => LoyaltyClaim(
         claimId: reader.string('claimId'),
         status: reader.string('status'),
         submittedAt: reader.timestamp('submittedAt'),
@@ -386,15 +409,14 @@ final class LoyaltyClaim {
 /// Wrapper returned when listing customer loyalty claims.
 final class LoyaltyClaims {
   /// Creates an immutable claims result.
-  const LoyaltyClaims({required this.claims});
+  LoyaltyClaims({required Iterable<LoyaltyClaim> claims})
+      : claims = List<LoyaltyClaim>.unmodifiable(claims);
 
   /// Decodes a claims-list response.
   factory LoyaltyClaims.fromJson(Map<String, Object?> json) {
     final reader = JsonReader.fromObject(json, context: 'loyaltyClaims');
     return LoyaltyClaims(
-      claims: List<LoyaltyClaim>.unmodifiable(
-        reader.optionalObjectList('claims').map(LoyaltyClaim.fromReader),
-      ),
+      claims: reader.optionalObjectList('claims').map(LoyaltyClaim._fromReader),
     );
   }
 

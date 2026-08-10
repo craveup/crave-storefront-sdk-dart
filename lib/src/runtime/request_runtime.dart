@@ -3,12 +3,23 @@ import 'dart:math';
 
 import '../cancellation.dart';
 
-final _cartEtagPattern = RegExp(r'^(?:W/)?"cart-(\d+)"$');
+final _revisionEtagPattern = RegExp(r'^(?:W/)?"([a-z]+)-(\d+)"$');
 
 /// Returns a cart revision from a strong or weak Storefront ETag.
 int? parseCartRevision(String? etag) {
-  final match = etag == null ? null : _cartEtagPattern.firstMatch(etag);
-  return match == null ? null : int.tryParse(match.group(1)!);
+  return _parseResourceRevision(etag, 'cart');
+}
+
+/// Returns an address revision from a strong or weak Storefront ETag.
+int? parseAddressRevision(String? etag) =>
+    _parseResourceRevision(etag, 'address');
+
+int? _parseResourceRevision(String? etag, String resource) {
+  final match = etag == null ? null : _revisionEtagPattern.firstMatch(etag);
+  if (match == null || match.group(1) != resource) {
+    return null;
+  }
+  return int.tryParse(match.group(2)!);
 }
 
 /// Generates cryptographically strong Storefront idempotency keys.

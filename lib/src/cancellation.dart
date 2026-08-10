@@ -1,7 +1,10 @@
 import 'dart:async';
 
-/// A cooperative cancellation signal for an in-flight Storefront request.
+/// A cooperative cancellation signal for one logical Storefront operation.
 final class StorefrontCancellationToken {
+  /// Creates a cancellation signal to discard after the operation settles.
+  StorefrontCancellationToken();
+
   final Completer<void> _completer = Completer<void>();
 
   /// Completes when [cancel] is called.

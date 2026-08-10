@@ -12,23 +12,34 @@ void main() {
         requestId: 'req_1',
         method: 'GET',
         routeTemplate: '/customer',
+        retryIdempotencyKey: 'token-like-private-value',
       ),
       const StorefrontTimeoutException(
         method: 'GET',
         routeTemplate: '/customer/orders/:orderId',
         timeout: Duration(seconds: 10),
+        retryIdempotencyKey: 'token-like-private-value',
       ),
       const StorefrontRequestCancelledException(
         method: 'GET',
         routeTemplate: '/customer',
+        retryIdempotencyKey: 'token-like-private-value',
       ),
       const StorefrontNetworkException(
         method: 'GET',
         routeTemplate: '/merchant/:merchantSlug',
+        retryIdempotencyKey: 'token-like-private-value',
+      ),
+      const StorefrontSessionException(
+        method: 'POST',
+        routeTemplate: '/locations/:locationId/carts/:cartId',
+        operationMayHaveSucceeded: true,
+        retryIdempotencyKey: 'token-like-private-value',
       ),
       const StorefrontDecodingException(
         method: 'GET',
         routeTemplate: '/merchant/:merchantSlug',
+        retryIdempotencyKey: 'token-like-private-value',
       ),
     ];
 

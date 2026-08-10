@@ -7,6 +7,26 @@ import 'package:http/testing.dart';
 import 'package:test/test.dart';
 
 void main() {
+  test('public resources reject path traversal identifiers locally', () async {
+    var requestCount = 0;
+    final client = CraveStorefrontClient(
+      baseUri: Uri.parse('https://api.example.test'),
+      merchantSlug: 'example-merchant',
+      httpClient: MockClient((_) async {
+        requestCount += 1;
+        return http.Response('{}', 200);
+      }),
+      sessionStore: InMemoryStorefrontSessionStore(),
+    );
+
+    await expectLater(
+      client.locations.get('..'),
+      throwsA(isA<StorefrontConfigurationException>()),
+    );
+    expect(requestCount, 0);
+    client.close();
+  });
+
   test('catalog resources use exact anonymous Storefront routes', () async {
     final requests = <http.Request>[];
     var tokenCalls = 0;

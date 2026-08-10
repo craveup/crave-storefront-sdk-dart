@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:crave_storefront_sdk/crave_storefront_sdk.dart';
 import 'package:crave_storefront_sdk/src/http/transport.dart';
+import 'package:crave_storefront_sdk/src/resources/customer_resources.dart'
+    show createCustomersClient;
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:test/test.dart';
@@ -29,13 +31,11 @@ void main() {
 
     final challenge = await customers.requestLogin(
       const CustomerLoginRequest(
-        merchantSlug: 'example-merchant',
         identifierString: 'developer@example.test',
       ),
     );
     final auth = await customers.verifyOtp(
       VerifyOtpRequest(
-        merchantSlug: 'example-merchant',
         identifierString: 'developer@example.test',
         methodId: challenge.methodId,
         otp: '123456',
@@ -143,6 +143,13 @@ void main() {
             200,
           );
         }
+        if (request.method == 'PATCH') {
+          return http.Response(
+            jsonEncode(_addressJson(revision: 4)),
+            200,
+            headers: {'etag': '"address-4"'},
+          );
+        }
         return http.Response(jsonEncode(_addressJson()), 200);
       },
     );
@@ -171,7 +178,7 @@ void main() {
     );
 
     expect(created.addressId, 'address_01');
-    expect(updated.revision, 3);
+    expect(updated.revision, 4);
     expect(deleted.success, isTrue);
     expect(
       requests.map((request) => '${request.method} ${request.url.path}'),
@@ -199,6 +206,32 @@ void main() {
       expect(request.headers['authorization'], 'Bearer customer-token');
     }
   });
+
+  for (final etag in <String?>[null, '"address-99"']) {
+    test(
+        'address update rejects ${etag == null ? 'missing' : 'mismatched'} ETag',
+        () async {
+      final customers = _customers(
+        handler: (_) async => http.Response(
+          jsonEncode(_addressJson(revision: 4)),
+          200,
+          headers: {if (etag != null) 'etag': etag},
+        ),
+      );
+
+      await expectLater(
+        customers.updateAddress(
+          'address_01',
+          UpdateCustomerAddressRequest(line2: 'Suite 2'),
+          options: const StorefrontRequestOptions(
+            idempotencyKey: 'address_update_key_0001',
+            revision: 3,
+          ),
+        ),
+        throwsA(isA<StorefrontDecodingException>()),
+      );
+    });
+  }
 
   test('saved payments and logout use customer auth without mutation headers',
       () async {
@@ -230,6 +263,10 @@ void main() {
     final loggedOut = await customers.logout();
 
     expect(payments.single.last4, '4242');
+    expect(
+      () => payments[0] = payments[0],
+      throwsUnsupportedError,
+    );
     expect(removed.success, isTrue);
     expect(loggedOut.success, isTrue);
     expect(
@@ -272,16 +309,6 @@ void main() {
       ),
       throwsA(isA<StorefrontConfigurationException>()),
     );
-    await expectLater(
-      customers.requestLogin(
-        const CustomerLoginRequest(
-          merchantSlug: 'another-merchant',
-          identifierString: 'developer@example.test',
-        ),
-      ),
-      throwsA(isA<StorefrontConfigurationException>()),
-    );
-
     expect(requestCalls, 0);
   });
 }
@@ -295,14 +322,14 @@ CustomersClient _customers({
     customerTokenProvider: tokenProvider ?? () async => 'customer-token',
     client: MockClient(handler),
   );
-  return CustomersClient(
+  return createCustomersClient(
     transport,
     'example-merchant',
     StorefrontIdempotencyKeyGenerator(),
   );
 }
 
-Map<String, Object?> _addressJson() => <String, Object?>{
+Map<String, Object?> _addressJson({int revision = 3}) => <String, Object?>{
       'addressId': 'address_01',
       'fullAddress': '100 Example Street',
       'line1': '100 Example Street',
@@ -310,7 +337,7 @@ Map<String, Object?> _addressJson() => <String, Object?>{
       'line3': '',
       'lat': 40.7,
       'lng': -74,
-      'revision': 3,
+      'revision': revision,
       'createdAt': '2026-08-10T12:00:00.000Z',
     };
 

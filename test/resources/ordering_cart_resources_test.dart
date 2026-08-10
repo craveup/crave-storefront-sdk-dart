@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -30,7 +31,7 @@ void main() {
       }),
     );
     final request = StartOrderingSessionRequest(
-      fulfillmentMethod: FulfillmentMethod.takeout,
+      fulfillmentMethod: 'takeout',
       channel: OrderChannel.app,
     );
 
@@ -77,7 +78,7 @@ void main() {
       client.orderingSessions.start(
         'location_01',
         StartOrderingSessionRequest(
-          fulfillmentMethod: FulfillmentMethod.takeout,
+          fulfillmentMethod: 'takeout',
           channel: OrderChannel.app,
           existingCartId: 'cart_01',
         ),
@@ -86,6 +87,78 @@ void main() {
     );
 
     expect(requestCount, 0);
+    client.close();
+  });
+
+  test('cart recommendations return an unmodifiable list', () async {
+    final store = InMemoryStorefrontSessionStore();
+    await _seedSession(store, revision: 3);
+    final client = CraveStorefrontClient(
+      baseUri: Uri.parse('https://api.example.test'),
+      merchantSlug: 'example-merchant',
+      sessionStore: store,
+      httpClient: MockClient(
+        (_) async => http.Response(
+          jsonEncode(<Object?>[
+            <String, Object?>{
+              'id': 'product_01',
+              'name': 'Tea',
+              'price': '4.00',
+              'images': <Object?>[],
+              'modifierIds': <Object?>[],
+            },
+          ]),
+          200,
+          headers: {'etag': '"cart-4"'},
+        ),
+      ),
+    );
+
+    final recommendations = await client.carts.listRecommendedProducts(
+      'location_01',
+      'cart_01',
+    );
+
+    expect(recommendations.single.id, 'product_01');
+    expect(
+      () => recommendations[0] = recommendations[0],
+      throwsUnsupportedError,
+    );
+    client.close();
+  });
+
+  test('ordering rejects a returned cart from another location', () async {
+    final store = InMemoryStorefrontSessionStore();
+    final client = CraveStorefrontClient(
+      baseUri: Uri.parse('https://api.example.test'),
+      merchantSlug: 'example-merchant',
+      sessionStore: store,
+      httpClient: MockClient(
+        (_) async => http.Response(
+          jsonEncode({
+            'cart': {
+              ..._cartJson(revision: 1),
+              'locationId': 'another_location',
+            },
+            'cartAccessToken': 'wrong-location-capability',
+          }),
+          201,
+          headers: {'etag': '"cart-1"'},
+        ),
+      ),
+    );
+
+    await expectLater(
+      client.orderingSessions.start(
+        'location_01',
+        StartOrderingSessionRequest.fresh(
+          fulfillmentMethod: 'takeout',
+        ),
+      ),
+      throwsA(isA<StorefrontDecodingException>()),
+    );
+
+    expect(await store.read(_scope()), isNull);
     client.close();
   });
 
@@ -240,12 +313,231 @@ void main() {
       merchantSlug: 'example-merchant',
       sessionStore: store,
       httpClient: MockClient(
-        (_) async => http.Response(jsonEncode(_cartJson(revision: 3)), 200),
+        (_) async => http.Response(
+          jsonEncode(_cartJson(revision: 3)),
+          200,
+          headers: {'etag': '"cart-3"'},
+        ),
       ),
     );
 
     await client.carts.delete('location_01', 'cart_01');
     expect(await store.read(_scope()), isNull);
+    client.close();
+  });
+
+  test('serializes a delayed cart read before deletion cleanup', () async {
+    final store = InMemoryStorefrontSessionStore();
+    await _seedSession(store, revision: 1);
+    final getStarted = Completer<void>();
+    final releaseGet = Completer<void>();
+    final deleteStarted = Completer<void>();
+    late http.Request deleteRequest;
+    final client = CraveStorefrontClient(
+      baseUri: Uri.parse('https://api.example.test'),
+      merchantSlug: 'example-merchant',
+      sessionStore: store,
+      httpClient: MockClient((request) async {
+        if (request.method == 'GET') {
+          getStarted.complete();
+          await releaseGet.future;
+          return http.Response(
+            jsonEncode(_cartJson(revision: 2)),
+            200,
+            headers: {'etag': '"cart-2"'},
+          );
+        }
+        deleteRequest = request;
+        deleteStarted.complete();
+        return http.Response(
+          jsonEncode(_cartJson(revision: 3)),
+          200,
+          headers: {'etag': '"cart-3"'},
+        );
+      }),
+    );
+
+    final pendingGet = client.carts.get('location_01', 'cart_01');
+    await getStarted.future;
+    final pendingDelete = client.carts.delete('location_01', 'cart_01');
+    final deleteOvertookRead = await Future.any<bool>([
+      deleteStarted.future.then((_) => true),
+      Future<bool>.delayed(const Duration(milliseconds: 25), () => false),
+    ]);
+    releaseGet.complete();
+    await pendingGet;
+    await pendingDelete;
+
+    expect(deleteOvertookRead, isFalse);
+    expect(deleteRequest.headers['if-match'], '"cart-2"');
+    expect(await store.read(_scope()), isNull);
+    client.close();
+  });
+
+  test('serializes a resumed ordering session before deletion cleanup',
+      () async {
+    final store = InMemoryStorefrontSessionStore();
+    await _seedSession(store, revision: 1);
+    final orderingStarted = Completer<void>();
+    final releaseOrdering = Completer<void>();
+    final deleteStarted = Completer<void>();
+    late http.Request deleteRequest;
+    final client = CraveStorefrontClient(
+      baseUri: Uri.parse('https://api.example.test'),
+      merchantSlug: 'example-merchant',
+      sessionStore: store,
+      httpClient: MockClient((request) async {
+        if (request.url.path.endsWith('/ordering-sessions')) {
+          orderingStarted.complete();
+          await releaseOrdering.future;
+          return http.Response(
+            jsonEncode({
+              'cart': _cartJson(revision: 2),
+              'cartAccessToken': 'resumed-capability',
+            }),
+            201,
+            headers: {'etag': '"cart-2"'},
+          );
+        }
+        deleteRequest = request;
+        deleteStarted.complete();
+        return http.Response(
+          jsonEncode(_cartJson(revision: 3)),
+          200,
+          headers: {'etag': '"cart-3"'},
+        );
+      }),
+    );
+
+    final pendingOrdering = client.orderingSessions.start(
+      'location_01',
+      StartOrderingSessionRequest(
+        fulfillmentMethod: 'takeout',
+        existingCartId: 'cart_01',
+      ),
+    );
+    await orderingStarted.future;
+    final pendingDelete = client.carts.delete('location_01', 'cart_01');
+    final deleteOvertookOrdering = await Future.any<bool>([
+      deleteStarted.future.then((_) => true),
+      Future<bool>.delayed(const Duration(milliseconds: 25), () => false),
+    ]);
+    releaseOrdering.complete();
+    await pendingOrdering;
+    await pendingDelete;
+
+    expect(deleteOvertookOrdering, isFalse);
+    expect(deleteRequest.headers['if-match'], '"cart-2"');
+    expect(await store.read(_scope()), isNull);
+    client.close();
+  });
+
+  test('serializes handoff exchange before deletion cleanup', () async {
+    final store = InMemoryStorefrontSessionStore();
+    await _seedSession(store, revision: 1);
+    final exchangeStarted = Completer<void>();
+    final releaseExchange = Completer<void>();
+    final deleteStarted = Completer<void>();
+    late http.Request deleteRequest;
+    final client = CraveStorefrontClient(
+      baseUri: Uri.parse('https://api.example.test'),
+      merchantSlug: 'example-merchant',
+      sessionStore: store,
+      httpClient: MockClient((request) async {
+        if (request.url.path.endsWith('/exchange')) {
+          exchangeStarted.complete();
+          await releaseExchange.future;
+          return http.Response(
+            jsonEncode({
+              'cart': _cartJson(revision: 2),
+              'cartAccessToken': 'exchanged-capability',
+              'merchantSlug': 'example-merchant',
+            }),
+            200,
+            headers: {'etag': '"cart-2"'},
+          );
+        }
+        deleteRequest = request;
+        deleteStarted.complete();
+        return http.Response(
+          jsonEncode(_cartJson(revision: 3)),
+          200,
+          headers: {'etag': '"cart-3"'},
+        );
+      }),
+    );
+
+    final pendingExchange = client.checkout.exchangeHandoff(
+      'location_01',
+      'cart_01',
+      'checkout-handoff-capability',
+      options: const StorefrontRequestOptions(
+        idempotencyKey: 'checkout-exchange-race-0001',
+      ),
+    );
+    await exchangeStarted.future;
+    final pendingDelete = client.carts.delete('location_01', 'cart_01');
+    final deleteOvertookExchange = await Future.any<bool>([
+      deleteStarted.future.then((_) => true),
+      Future<bool>.delayed(const Duration(milliseconds: 25), () => false),
+    ]);
+    releaseExchange.complete();
+    await pendingExchange;
+    await pendingDelete;
+
+    expect(deleteOvertookExchange, isFalse);
+    expect(deleteRequest.headers['if-match'], '"cart-2"');
+    expect(await store.read(_scope()), isNull);
+    client.close();
+  });
+
+  test('does not send a queued cart mutation after its timeout', () async {
+    final store = InMemoryStorefrontSessionStore();
+    await _seedSession(store, revision: 1);
+    final getStarted = Completer<void>();
+    final releaseGet = Completer<void>();
+    final requests = <http.Request>[];
+    final client = CraveStorefrontClient(
+      baseUri: Uri.parse('https://api.example.test'),
+      merchantSlug: 'example-merchant',
+      sessionStore: store,
+      httpClient: MockClient((request) async {
+        requests.add(request);
+        if (request.method != 'GET') {
+          return http.Response(
+            jsonEncode(_cartJson(revision: 3)),
+            200,
+            headers: {'etag': '"cart-3"'},
+          );
+        }
+        getStarted.complete();
+        await releaseGet.future;
+        return http.Response(
+          jsonEncode(_cartJson(revision: 2)),
+          200,
+          headers: {'etag': '"cart-2"'},
+        );
+      }),
+    );
+
+    final pendingGet = client.carts.get('location_01', 'cart_01');
+    await getStarted.future;
+    final pendingDelete = client.carts.delete(
+      'location_01',
+      'cart_01',
+      options: const StorefrontRequestOptions(
+        timeout: Duration(milliseconds: 10),
+      ),
+    );
+
+    await expectLater(
+        pendingDelete, throwsA(isA<StorefrontTimeoutException>()));
+    releaseGet.complete();
+    await pendingGet;
+    await Future<void>.delayed(const Duration(milliseconds: 25));
+
+    expect(requests, hasLength(1));
+    expect((await store.read(_scope()))?.revision, 2);
     client.close();
   });
 }

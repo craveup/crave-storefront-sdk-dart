@@ -64,6 +64,40 @@ void main() {
       transport.close();
     });
 
+    test('rejects dot path segments before credentials or network I/O',
+        () async {
+      var tokenCalls = 0;
+      var requestCount = 0;
+      final transport = StorefrontTransport(
+        baseUri: Uri.parse('https://api.example.test'),
+        customerTokenProvider: () async {
+          tokenCalls += 1;
+          return 'customer-token';
+        },
+        client: MockClient((_) async {
+          requestCount += 1;
+          return http.Response('{}', 200);
+        }),
+      );
+
+      for (final segment in ['.', '..']) {
+        await expectLater(
+          transport.send<Map<String, Object?>>(
+            method: 'GET',
+            pathSegments: ['locations', segment],
+            routeTemplate: '/locations/:locationSlugOrId',
+            authorization: StorefrontAuthorization.customer,
+            decoder: _mapDecoder,
+          ),
+          throwsA(isA<StorefrontConfigurationException>()),
+        );
+      }
+
+      expect(tokenCalls, 0);
+      expect(requestCount, 0);
+      transport.close();
+    });
+
     test('never asks for or attaches JWT on anonymous requests', () async {
       var tokenCalls = 0;
       late http.Request captured;
@@ -412,6 +446,126 @@ void main() {
       transport.close();
     });
 
+    test('server failures retain replay keys only for ambiguous statuses',
+        () async {
+      const stableKey = 'same-server-failure-0001';
+      var status = 503;
+      final transport = StorefrontTransport(
+        baseUri: Uri.parse('https://api.example.test'),
+        client: MockClient(
+          (_) async => http.Response(
+            '{"code":"SERVICE_UNAVAILABLE"}',
+            status,
+          ),
+        ),
+      );
+
+      Future<StorefrontApiException> invoke() async {
+        try {
+          await transport.send<Map<String, Object?>>(
+            method: 'POST',
+            pathSegments: const ['locations', 'loc', 'ordering-sessions'],
+            routeTemplate: '/locations/:locationId/ordering-sessions',
+            idempotencyKey: stableKey,
+            decoder: _mapDecoder,
+          );
+        } on StorefrontApiException catch (error) {
+          return error;
+        }
+        fail('Expected the API request to fail.');
+      }
+
+      final unavailable = await invoke();
+      expect(unavailable.retryIdempotencyKey, stableKey);
+      expect(unavailable.toString(), isNot(contains(stableKey)));
+
+      status = 409;
+      final conflict = await invoke();
+      expect(conflict.retryIdempotencyKey, isNull);
+      transport.close();
+    });
+
+    test('maps non-JSON failures to a safe HTTP error', () async {
+      const privateBody = '<html>private upstream detail</html>';
+      final transport = StorefrontTransport(
+        baseUri: Uri.parse('https://api.example.test'),
+        client: MockClient(
+          (_) async => http.Response(
+            privateBody,
+            502,
+            headers: {'x-request-id': 'req_gateway_123'},
+          ),
+        ),
+      );
+
+      await expectLater(
+        transport.send<Map<String, Object?>>(
+          method: 'GET',
+          pathSegments: const ['merchant', 'demo'],
+          routeTemplate: '/merchant/:merchantSlug',
+          decoder: _mapDecoder,
+        ),
+        throwsA(
+          isA<StorefrontApiException>()
+              .having((error) => error.statusCode, 'statusCode', 502)
+              .having((error) => error.code, 'code', 'HTTP_ERROR')
+              .having(
+                (error) => error.requestId,
+                'requestId',
+                'req_gateway_123',
+              )
+              .having(
+                (error) => error.toString(),
+                'safe string',
+                isNot(contains(privateBody)),
+              ),
+        ),
+      );
+      transport.close();
+    });
+
+    test('sanitizes body-controlled error metadata', () async {
+      const privateValue = 'private-value';
+      final transport = StorefrontTransport(
+        baseUri: Uri.parse('https://api.example.test'),
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'code': 'INVALID\n$privateValue',
+              'requestId': 'req\r\n$privateValue',
+              'details': {
+                'fields': [
+                  {'path': 'customer.email\n$privateValue'},
+                ],
+              },
+            }),
+            400,
+            headers: {'x-request-id': 'also\r\n$privateValue'},
+          ),
+        ),
+      );
+
+      await expectLater(
+        transport.send<Map<String, Object?>>(
+          method: 'GET',
+          pathSegments: const ['merchant', 'demo'],
+          routeTemplate: '/merchant/:merchantSlug',
+          decoder: _mapDecoder,
+        ),
+        throwsA(
+          isA<StorefrontApiException>()
+              .having((error) => error.code, 'code', 'HTTP_ERROR')
+              .having((error) => error.requestId, 'requestId', isNull)
+              .having(
+                (error) => '$error ${error.details}',
+                'safe metadata',
+                isNot(contains(privateValue)),
+              ),
+        ),
+      );
+      transport.close();
+    });
+
     test('distinguishes timeout and caller cancellation', () async {
       final never = Completer<http.Response>();
       final transport = StorefrontTransport(
@@ -447,10 +601,131 @@ void main() {
       transport.close();
     });
 
+    test('ambiguous transport failures expose only the stable replay key',
+        () async {
+      const stableKey = 'same-logical-mutation-0001';
+      final timeoutTransport = StorefrontTransport(
+        baseUri: Uri.parse('https://api.example.test'),
+        defaultTimeout: const Duration(milliseconds: 5),
+        client: MockClient((_) => Completer<http.Response>().future),
+      );
+
+      await expectLater(
+        timeoutTransport.send<Map<String, Object?>>(
+          method: 'POST',
+          pathSegments: const ['locations', 'loc', 'ordering-sessions'],
+          routeTemplate: '/locations/:locationId/ordering-sessions',
+          idempotencyKey: stableKey,
+          decoder: _mapDecoder,
+        ),
+        throwsA(
+          isA<StorefrontTimeoutException>()
+              .having(
+                (error) => error.retryIdempotencyKey,
+                'retryIdempotencyKey',
+                stableKey,
+              )
+              .having(
+                (error) => error.toString(),
+                'safe string',
+                isNot(contains(stableKey)),
+              ),
+        ),
+      );
+      timeoutTransport.close();
+
+      final cancellation = StorefrontCancellationToken();
+      final cancellationTransport = StorefrontTransport(
+        baseUri: Uri.parse('https://api.example.test'),
+        client: MockClient((_) => Completer<http.Response>().future),
+      );
+      final cancelled = cancellationTransport.send<Map<String, Object?>>(
+        method: 'POST',
+        pathSegments: const ['locations', 'loc', 'ordering-sessions'],
+        routeTemplate: '/locations/:locationId/ordering-sessions',
+        idempotencyKey: stableKey,
+        cancellationToken: cancellation,
+        decoder: _mapDecoder,
+      );
+      cancellation.cancel();
+      await expectLater(
+        cancelled,
+        throwsA(
+          isA<StorefrontRequestCancelledException>().having(
+            (error) => error.retryIdempotencyKey,
+            'retryIdempotencyKey',
+            stableKey,
+          ),
+        ),
+      );
+      cancellationTransport.close();
+
+      final networkTransport = StorefrontTransport(
+        baseUri: Uri.parse('https://api.example.test'),
+        client: MockClient(
+          (_) async => throw http.ClientException('private-network-value'),
+        ),
+      );
+      await expectLater(
+        networkTransport.send<Map<String, Object?>>(
+          method: 'POST',
+          pathSegments: const ['locations', 'loc', 'ordering-sessions'],
+          routeTemplate: '/locations/:locationId/ordering-sessions',
+          idempotencyKey: stableKey,
+          decoder: _mapDecoder,
+        ),
+        throwsA(
+          isA<StorefrontNetworkException>().having(
+            (error) => error.retryIdempotencyKey,
+            'retryIdempotencyKey',
+            stableKey,
+          ),
+        ),
+      );
+      networkTransport.close();
+    });
+
     test('maps malformed success JSON to a safe decoding error', () async {
+      const stableKey = 'same-malformed-response-0001';
       final transport = StorefrontTransport(
         baseUri: Uri.parse('https://api.example.test'),
         client: MockClient((_) async => http.Response('private-value', 200)),
+      );
+
+      await expectLater(
+        transport.send<Map<String, Object?>>(
+          method: 'GET',
+          pathSegments: const ['merchant', 'demo'],
+          routeTemplate: '/merchant/:merchantSlug',
+          idempotencyKey: stableKey,
+          decoder: _mapDecoder,
+        ),
+        throwsA(
+          isA<StorefrontDecodingException>()
+              .having(
+                (error) => error.retryIdempotencyKey,
+                'retryIdempotencyKey',
+                stableKey,
+              )
+              .having(
+                (error) => error.toString(),
+                'safe string',
+                allOf(
+                  isNot(contains('private-value')),
+                  isNot(contains(stableKey)),
+                ),
+              ),
+        ),
+      );
+      transport.close();
+    });
+
+    test('rejects oversized response bodies before decoding', () async {
+      const privateBody = 'private-response-body-that-is-too-large';
+      final transport = StorefrontTransport(
+        baseUri: Uri.parse('https://api.example.test'),
+        maxResponseBytes: 16,
+        client: MockClient((_) async => http.Response(privateBody, 200)),
       );
 
       await expectLater(
@@ -464,7 +739,7 @@ void main() {
           isA<StorefrontDecodingException>().having(
             (error) => error.toString(),
             'safe string',
-            isNot(contains('private-value')),
+            isNot(contains(privateBody)),
           ),
         ),
       );

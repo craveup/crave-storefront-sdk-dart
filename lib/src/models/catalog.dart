@@ -3,20 +3,20 @@ import '../json/json_reader.dart';
 /// A location's menus and popular products.
 final class MenuBundle {
   /// Creates an immutable menu bundle.
-  const MenuBundle({required this.menus, required this.popularProducts});
+  MenuBundle({
+    required Iterable<Menu> menus,
+    required Iterable<MenuProduct> popularProducts,
+  })  : menus = List<Menu>.unmodifiable(menus),
+        popularProducts = List<MenuProduct>.unmodifiable(popularProducts);
 
   /// Decodes a menu-bundle response.
   factory MenuBundle.fromJson(Map<String, Object?> json) {
     final reader = JsonReader.fromObject(json, context: 'menuBundle');
     return MenuBundle(
-      menus: List<Menu>.unmodifiable(
-        reader.optionalObjectList('menus').map(Menu.fromReader),
-      ),
-      popularProducts: List<MenuProduct>.unmodifiable(
-        reader
-            .optionalObjectList('popularProducts')
-            .map(MenuProduct.fromReader),
-      ),
+      menus: reader.optionalObjectList('menus').map(Menu._fromReader),
+      popularProducts: reader
+          .optionalObjectList('popularProducts')
+          .map(MenuProduct._fromReader),
     );
   }
 
@@ -30,25 +30,29 @@ final class MenuBundle {
 /// A published menu.
 final class Menu {
   /// Creates an immutable menu.
-  const Menu({
+  Menu({
     required this.id,
     required this.name,
     required this.isActive,
     required this.time,
-    required this.categories,
+    required Iterable<MenuCategory> categories,
     this.imageUrl,
-  });
+  }) : categories = List<MenuCategory>.unmodifiable(categories);
 
-  /// Decodes a menu from an existing reader.
-  factory Menu.fromReader(JsonReader reader) => Menu(
+  /// Decodes a menu response.
+  factory Menu.fromJson(Map<String, Object?> json) => Menu._fromReader(
+        JsonReader.fromObject(json, context: 'menu'),
+      );
+
+  factory Menu._fromReader(JsonReader reader) => Menu(
         id: reader.string('id'),
         name: reader.string('name'),
         isActive: reader.boolean('isActive'),
         time: reader.string('time'),
         imageUrl: reader.nullableString('imageUrl'),
-        categories: List<MenuCategory>.unmodifiable(
-          reader.optionalObjectList('categories').map(MenuCategory.fromReader),
-        ),
+        categories: reader
+            .optionalObjectList('categories')
+            .map(MenuCategory._fromReader),
       );
 
   /// Stable menu identifier.
@@ -73,19 +77,23 @@ final class Menu {
 /// A category in a published menu.
 final class MenuCategory {
   /// Creates an immutable category.
-  const MenuCategory({
+  MenuCategory({
     required this.id,
     required this.name,
-    required this.products,
-  });
+    required Iterable<MenuProduct> products,
+  }) : products = List<MenuProduct>.unmodifiable(products);
 
-  /// Decodes a category from an existing reader.
-  factory MenuCategory.fromReader(JsonReader reader) => MenuCategory(
+  /// Decodes a menu-category response.
+  factory MenuCategory.fromJson(Map<String, Object?> json) =>
+      MenuCategory._fromReader(
+        JsonReader.fromObject(json, context: 'menuCategory'),
+      );
+
+  factory MenuCategory._fromReader(JsonReader reader) => MenuCategory(
         id: reader.string('id'),
         name: reader.string('name'),
-        products: List<MenuProduct>.unmodifiable(
-          reader.optionalObjectList('products').map(MenuProduct.fromReader),
-        ),
+        products:
+            reader.optionalObjectList('products').map(MenuProduct._fromReader),
       );
 
   /// Stable category identifier.
@@ -101,21 +109,27 @@ final class MenuCategory {
 /// A compact product embedded in a menu.
 final class MenuProduct {
   /// Creates an immutable menu product.
-  const MenuProduct({
+  MenuProduct({
     required this.id,
     required this.name,
     required this.price,
     required this.displayPrice,
     required this.currency,
-    required this.modifierIds,
-    required this.images,
+    required Iterable<String> modifierIds,
+    required Iterable<String> images,
     this.description,
     this.availability,
     this.nutrition,
-  });
+  })  : modifierIds = List<String>.unmodifiable(modifierIds),
+        images = List<String>.unmodifiable(images);
 
-  /// Decodes a menu product from an existing reader.
-  factory MenuProduct.fromReader(JsonReader reader) {
+  /// Decodes a menu-product response.
+  factory MenuProduct.fromJson(Map<String, Object?> json) =>
+      MenuProduct._fromReader(
+        JsonReader.fromObject(json, context: 'menuProduct'),
+      );
+
+  factory MenuProduct._fromReader(JsonReader reader) {
     final nutritionReader = reader.nullableObject('nutrition');
     return MenuProduct(
       id: reader.string('id'),
@@ -129,7 +143,7 @@ final class MenuProduct {
       images: reader.optionalStringList('images'),
       nutrition: nutritionReader == null
           ? null
-          : Nutrition.fromReader(nutritionReader),
+          : Nutrition._fromReader(nutritionReader),
     );
   }
 
@@ -167,20 +181,22 @@ final class MenuProduct {
 /// Full product details returned by the product endpoint.
 final class Product {
   /// Creates immutable product details.
-  const Product({
+  Product({
     required this.id,
     required this.locationId,
     required this.name,
     required this.price,
     required this.displayPrice,
     required this.currency,
-    required this.modifierIds,
-    required this.images,
-    required this.modifiers,
+    required Iterable<String> modifierIds,
+    required Iterable<String> images,
+    required Iterable<ModifierGroup> modifiers,
     this.description,
     this.availability,
     this.nutrition,
-  });
+  })  : modifierIds = List<String>.unmodifiable(modifierIds),
+        images = List<String>.unmodifiable(images),
+        modifiers = List<ModifierGroup>.unmodifiable(modifiers);
 
   /// Decodes a product response.
   factory Product.fromJson(Map<String, Object?> json) {
@@ -197,12 +213,11 @@ final class Product {
       description: reader.nullableString('description'),
       availability: reader.nullableString('availability'),
       images: reader.optionalStringList('images'),
-      modifiers: List<ModifierGroup>.unmodifiable(
-        reader.optionalObjectList('modifiers').map(ModifierGroup.fromReader),
-      ),
+      modifiers:
+          reader.optionalObjectList('modifiers').map(ModifierGroup._fromReader),
       nutrition: nutritionReader == null
           ? null
-          : Nutrition.fromReader(nutritionReader),
+          : Nutrition._fromReader(nutritionReader),
     );
   }
 
@@ -246,24 +261,24 @@ final class Product {
 /// A compact product returned as a cart recommendation.
 final class CartRecommendation {
   /// Creates an immutable cart recommendation.
-  const CartRecommendation({
+  CartRecommendation({
     required this.id,
     required this.name,
     required this.price,
-    required this.images,
-    required this.modifierIds,
+    required Iterable<String> images,
+    required Iterable<String> modifierIds,
     this.description,
     this.availability,
-  });
+  })  : images = List<String>.unmodifiable(images),
+        modifierIds = List<String>.unmodifiable(modifierIds);
 
   /// Decodes a cart-recommendation response item.
   factory CartRecommendation.fromJson(Map<String, Object?> json) =>
-      CartRecommendation.fromReader(
+      CartRecommendation._fromReader(
         JsonReader.fromObject(json, context: 'cartRecommendation'),
       );
 
-  /// Decodes a recommendation from an existing reader.
-  factory CartRecommendation.fromReader(JsonReader reader) =>
+  factory CartRecommendation._fromReader(JsonReader reader) =>
       CartRecommendation(
         id: reader.string('id'),
         name: reader.string('name'),
@@ -299,21 +314,27 @@ final class CartRecommendation {
 /// Product nutrition information.
 final class Nutrition {
   /// Creates immutable nutrition information.
-  const Nutrition({
-    required this.dietaryPreferences,
-    required this.ingredients,
+  Nutrition({
+    required Iterable<String> dietaryPreferences,
+    required Iterable<String> ingredients,
     this.calorieCount,
-  });
+  })  : dietaryPreferences = List<String>.unmodifiable(dietaryPreferences),
+        ingredients = List<String>.unmodifiable(ingredients);
 
-  /// Decodes nutrition information from an existing reader.
-  factory Nutrition.fromReader(JsonReader reader) => Nutrition(
-        calorieCount: reader.nullableInteger('calorieCount'),
+  /// Decodes product nutrition information.
+  factory Nutrition.fromJson(Map<String, Object?> json) =>
+      Nutrition._fromReader(
+        JsonReader.fromObject(json, context: 'nutrition'),
+      );
+
+  factory Nutrition._fromReader(JsonReader reader) => Nutrition(
+        calorieCount: reader.nullableNumber('calorieCount'),
         dietaryPreferences: reader.optionalStringList('dietaryPreferences'),
         ingredients: reader.optionalStringList('ingredients'),
       );
 
-  /// Optional calorie count.
-  final int? calorieCount;
+  /// Optional finite calorie count.
+  final double? calorieCount;
 
   /// Dietary preference labels.
   final List<String> dietaryPreferences;
@@ -325,25 +346,28 @@ final class Nutrition {
 /// A product modifier group.
 final class ModifierGroup {
   /// Creates an immutable modifier group.
-  const ModifierGroup({
+  ModifierGroup({
     required this.id,
     required this.name,
     required this.rule,
-    required this.items,
+    required Iterable<ModifierItem> items,
     this.description,
     this.imageUrl,
-  });
+  }) : items = List<ModifierItem>.unmodifiable(items);
 
-  /// Decodes a modifier group from an existing reader.
-  factory ModifierGroup.fromReader(JsonReader reader) => ModifierGroup(
+  /// Decodes a modifier-group response.
+  factory ModifierGroup.fromJson(Map<String, Object?> json) =>
+      ModifierGroup._fromReader(
+        JsonReader.fromObject(json, context: 'modifierGroup'),
+      );
+
+  factory ModifierGroup._fromReader(JsonReader reader) => ModifierGroup(
         id: reader.string('id'),
         name: reader.string('name'),
         description: reader.nullableString('description'),
         imageUrl: reader.nullableString('imageUrl'),
-        rule: ModifierRule.fromReader(reader.object('rule')),
-        items: List<ModifierItem>.unmodifiable(
-          reader.optionalObjectList('items').map(ModifierItem.fromReader),
-        ),
+        rule: ModifierRule._fromReader(reader.object('rule')),
+        items: reader.optionalObjectList('items').map(ModifierItem._fromReader),
       );
 
   /// Stable modifier-group identifier.
@@ -370,8 +394,13 @@ final class ModifierRule {
   /// Creates an immutable modifier rule.
   const ModifierRule({required this.minimum, required this.maximum});
 
-  /// Decodes a modifier rule from an existing reader.
-  factory ModifierRule.fromReader(JsonReader reader) => ModifierRule(
+  /// Decodes a modifier selection rule.
+  factory ModifierRule.fromJson(Map<String, Object?> json) =>
+      ModifierRule._fromReader(
+        JsonReader.fromObject(json, context: 'modifierRule'),
+      );
+
+  factory ModifierRule._fromReader(JsonReader reader) => ModifierRule(
         minimum: reader.integer('min'),
         maximum: reader.integer('max'),
       );
@@ -386,25 +415,28 @@ final class ModifierRule {
 /// One selectable modifier option.
 final class ModifierItem {
   /// Creates an immutable modifier item.
-  const ModifierItem({
+  ModifierItem({
     required this.id,
     required this.name,
     required this.price,
     required this.maxQuantity,
-    required this.childGroups,
-  });
+    required Iterable<ModifierChildLink> childGroups,
+  }) : childGroups = List<ModifierChildLink>.unmodifiable(childGroups);
 
-  /// Decodes a modifier item from an existing reader.
-  factory ModifierItem.fromReader(JsonReader reader) => ModifierItem(
+  /// Decodes a modifier-item response.
+  factory ModifierItem.fromJson(Map<String, Object?> json) =>
+      ModifierItem._fromReader(
+        JsonReader.fromObject(json, context: 'modifierItem'),
+      );
+
+  factory ModifierItem._fromReader(JsonReader reader) => ModifierItem(
         id: reader.string('id'),
         name: reader.string('name'),
         price: reader.string('price'),
         maxQuantity: reader.integer('maxQuantity'),
-        childGroups: List<ModifierChildLink>.unmodifiable(
-          reader
-              .optionalObjectList('childGroups')
-              .map(ModifierChildLink.fromReader),
-        ),
+        childGroups: reader
+            .optionalObjectList('childGroups')
+            .map(ModifierChildLink._fromReader),
       );
 
   /// Stable option identifier.
@@ -435,8 +467,13 @@ final class ModifierChildLink {
     this.circular,
   });
 
-  /// Decodes a child-group link from an existing reader.
-  factory ModifierChildLink.fromReader(JsonReader reader) {
+  /// Decodes a modifier child-group link.
+  factory ModifierChildLink.fromJson(Map<String, Object?> json) =>
+      ModifierChildLink._fromReader(
+        JsonReader.fromObject(json, context: 'modifierChildLink'),
+      );
+
+  factory ModifierChildLink._fromReader(JsonReader reader) {
     final overrides = reader.nullableObject('overrides');
     final group = reader.nullableObject('group');
     return ModifierChildLink(
@@ -444,7 +481,7 @@ final class ModifierChildLink {
       minimumOverride: overrides?.nullableInteger('min'),
       maximumOverride: overrides?.nullableInteger('max'),
       applyPerParentQuantity: reader.nullableBoolean('applyPerParentQuantity'),
-      group: group == null ? null : ModifierGroup.fromReader(group),
+      group: group == null ? null : ModifierGroup._fromReader(group),
       circular: reader.nullableBoolean('circular'),
     );
   }

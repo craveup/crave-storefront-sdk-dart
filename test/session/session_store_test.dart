@@ -72,6 +72,11 @@ void main() {
       expect(claimed?.revision, 5);
       expect(claimed?.accessToken, isNull);
 
+      await store.write(original.withRevision(6));
+      final delayedCapabilityWrite = await store.read(scope);
+      expect(delayedCapabilityWrite?.revision, 6);
+      expect(delayedCapabilityWrite?.accessToken, isNull);
+
       await store.delete(scope);
       expect(await store.read(scope), isNull);
     });

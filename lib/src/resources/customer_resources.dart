@@ -8,10 +8,17 @@ import 'resource_support.dart';
 const _maximumPageSize = 50;
 const _maximumCursorLength = 512;
 
+/// Creates customer resources for the package facade.
+CustomersClient createCustomersClient(
+  StorefrontTransport transport,
+  String merchantSlug,
+  StorefrontIdempotencyKeyGenerator idempotencyKeyGenerator,
+) =>
+    CustomersClient._(transport, merchantSlug, idempotencyKeyGenerator);
+
 /// Customer identity, order, address, and saved-payment operations.
 final class CustomersClient {
-  /// Creates a customer resource client for one configured merchant.
-  const CustomersClient(
+  const CustomersClient._(
     this._transport,
     this._merchantSlug,
     this._idempotencyKeyGenerator,
@@ -26,13 +33,15 @@ final class CustomersClient {
     CustomerLoginRequest request, {
     StorefrontRequestOptions? options,
   }) async {
-    _requireConfiguredMerchant(request.merchantSlug);
     return _send<LoginChallenge>(
       method: 'POST',
       pathSegments: const ['customer', 'auth', 'login'],
       routeTemplate: '/customer/auth/login',
       authorization: StorefrontAuthorization.anonymous,
-      body: request.toJson(),
+      body: <String, Object?>{
+        'merchantSlug': _merchantSlug,
+        ...request.toJson(),
+      },
       decoder: (value) => LoginChallenge.fromJson(decodeJsonObject(value)),
       options: options,
     );
@@ -43,13 +52,15 @@ final class CustomersClient {
     VerifyOtpRequest request, {
     StorefrontRequestOptions? options,
   }) async {
-    _requireConfiguredMerchant(request.merchantSlug);
     return _send<AuthResult>(
       method: 'POST',
       pathSegments: const ['customer', 'auth', 'verify-otp'],
       routeTemplate: '/customer/auth/verify-otp',
       authorization: StorefrontAuthorization.anonymous,
-      body: request.toJson(),
+      body: <String, Object?>{
+        'merchantSlug': _merchantSlug,
+        ...request.toJson(),
+      },
       decoder: (value) => AuthResult.fromJson(decodeJsonObject(value)),
       options: options,
     );
@@ -158,6 +169,7 @@ final class CustomersClient {
       idempotent: true,
       revision: StorefrontRevision.address(revision),
       decoder: (value) => CustomerAddress.fromJson(decodeJsonObject(value)),
+      requiredAddressEtagRevision: (address) => address.revision,
       options: options,
     );
   }
@@ -185,9 +197,9 @@ final class CustomersClient {
         method: 'GET',
         pathSegments: const ['customer', 'saved-payments'],
         routeTemplate: '/customer/saved-payments',
-        decoder: (value) => decodeJsonObjectList(value)
-            .map(SavedPaymentMethod.fromJson)
-            .toList(growable: false),
+        decoder: (value) => List<SavedPaymentMethod>.unmodifiable(
+          decodeJsonObjectList(value).map(SavedPaymentMethod.fromJson),
+        ),
         options: options,
       );
 
@@ -227,9 +239,13 @@ final class CustomersClient {
     Object? body,
     bool idempotent = false,
     StorefrontRevision? revision,
+    int Function(T value)? requiredAddressEtagRevision,
     StorefrontRequestOptions? options,
   }) async {
     final request = ResourceRequestOptions(options);
+    final idempotencyKey = idempotent
+        ? request.idempotencyKey ?? _idempotencyKeyGenerator.next()
+        : null;
     final response = await _transport.send<T>(
       method: method,
       pathSegments: pathSegments,
@@ -237,23 +253,24 @@ final class CustomersClient {
       authorization: authorization,
       query: query,
       body: body,
-      idempotencyKey: idempotent
-          ? request.idempotencyKey ?? _idempotencyKeyGenerator.next()
-          : null,
+      idempotencyKey: idempotencyKey,
       revision: revision,
       decoder: decoder,
       timeout: request.timeout,
       cancellationToken: request.cancellationToken,
     );
-    return response.data;
-  }
-
-  void _requireConfiguredMerchant(String merchantSlug) {
-    if (merchantSlug != _merchantSlug) {
-      throw const StorefrontConfigurationException(
-        'The authentication merchantSlug must match the configured client.',
-      );
+    if (requiredAddressEtagRevision != null) {
+      final headerRevision = parseAddressRevision(response.etag);
+      if (headerRevision == null ||
+          headerRevision != requiredAddressEtagRevision(response.data)) {
+        throw StorefrontDecodingException(
+          method: method,
+          routeTemplate: routeTemplate,
+          retryIdempotencyKey: idempotencyKey,
+        );
+      }
     }
+    return response.data;
   }
 }
 

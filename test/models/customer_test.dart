@@ -16,20 +16,17 @@ void main() {
   group('customer identity', () {
     test('serializes login and OTP requests with an explicit allowlist', () {
       final login = CustomerLoginRequest(
-        merchantSlug: 'example-tea',
         identifierString: 'developer@example.test',
       );
       final otp = VerifyOtpRequest(
-        merchantSlug: 'example-tea',
         identifierString: 'developer@example.test',
         methodId: 'method_01',
         otp: '123456',
         customerName: 'Example Customer',
       );
 
-      expect(login.toJson().keys, <String>['merchantSlug', 'identifierString']);
+      expect(login.toJson().keys, <String>['identifierString']);
       expect(otp.toJson().keys, <String>[
-        'merchantSlug',
         'identifierString',
         'methodId',
         'otp',

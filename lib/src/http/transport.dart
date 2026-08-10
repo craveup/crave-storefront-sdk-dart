@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
@@ -10,8 +11,12 @@ import '../origin.dart';
 
 const _apiPath = <String>['api', 'v1', 'storefront'];
 const _defaultTimeout = Duration(seconds: 10);
+const _defaultMaxResponseBytes = 16 * 1024 * 1024;
 final _idempotencyKeyPattern = RegExp(r'^[A-Za-z0-9._:-]{16,128}$');
 final _credentialHeaderPattern = RegExp(r'^[\x21-\x7e]+$');
+final _errorCodePattern = RegExp(r'^[A-Z][A-Z0-9_]{0,63}$');
+final _requestIdPattern = RegExp(r'^[A-Za-z0-9._:-]{1,128}$');
+final _fieldPathPattern = RegExp(r'^[A-Za-z0-9_.\[\]-]{1,128}$');
 
 /// Determines which narrowly scoped credential a request may use.
 enum StorefrontAuthorization {
@@ -61,6 +66,7 @@ final class StorefrontRevision {
 
 /// Decoded transport result and selected safe response metadata.
 final class StorefrontTransportResponse<T> {
+  /// Creates a decoded response with safe selected metadata.
   const StorefrontTransportResponse({
     required this.data,
     this.etag,
@@ -87,12 +93,18 @@ final class StorefrontTransport {
     http.Client? client,
     this.customerTokenProvider,
     this.defaultTimeout = _defaultTimeout,
+    this.maxResponseBytes = _defaultMaxResponseBytes,
   })  : baseUri = normalizeStorefrontOrigin(baseUri),
         _client = client ?? http.Client(),
         _ownsClient = client == null {
     if (defaultTimeout <= Duration.zero) {
       throw const StorefrontConfigurationException(
         'The default timeout must be greater than zero.',
+      );
+    }
+    if (maxResponseBytes <= 0) {
+      throw const StorefrontConfigurationException(
+        'The maximum response size must be greater than zero.',
       );
     }
   }
@@ -105,6 +117,9 @@ final class StorefrontTransport {
 
   /// Default request deadline.
   final Duration defaultTimeout;
+
+  /// Maximum response body retained before safe decoding stops.
+  final int maxResponseBytes;
 
   final http.Client _client;
   final bool _ownsClient;
@@ -141,9 +156,11 @@ final class StorefrontTransport {
         'The request timeout must be greater than zero.',
       );
     }
-    if (pathSegments.any((segment) => segment.isEmpty)) {
+    if (pathSegments.any(
+      (segment) => segment.isEmpty || segment == '.' || segment == '..',
+    )) {
       throw const StorefrontConfigurationException(
-        'Storefront path segments must not be empty.',
+        'Storefront path segments must be non-empty resource identifiers.',
       );
     }
     if (idempotencyKey != null &&
@@ -170,22 +187,22 @@ final class StorefrontTransport {
       queryParameters: queryParameters.isEmpty ? null : queryParameters,
     );
     final abort = Completer<void>();
-    var timedOut = false;
-    var cancelled = cancellationToken?.isCancelled ?? false;
-    if (cancelled) {
-      abort.complete();
+    _AbortCause? abortCause;
+    void abortWith(_AbortCause cause) {
+      if (!abort.isCompleted) {
+        abortCause = cause;
+        abort.complete();
+      }
+    }
+
+    if (cancellationToken?.isCancelled ?? false) {
+      abortWith(_AbortCause.cancelled);
     }
     unawaited(cancellationToken?.whenCancelled.then((_) {
-      cancelled = true;
-      if (!abort.isCompleted) {
-        abort.complete();
-      }
+      abortWith(_AbortCause.cancelled);
     }));
     final timer = Timer(deadline, () {
-      timedOut = true;
-      if (!abort.isCompleted) {
-        abort.complete();
-      }
+      abortWith(_AbortCause.timeout);
     });
 
     final request = http.AbortableRequest(
@@ -221,22 +238,60 @@ final class StorefrontTransport {
         _client.send(request),
         abort.future.then<http.StreamedResponse>((_) => throw const _Aborted()),
       ]);
-      final response = await http.Response.fromStream(streamedResponse);
-      final requestId = response.headers['x-request-id'];
-      final parsed = _parseJson(response.body, response.statusCode);
-      if (response.statusCode < 200 || response.statusCode >= 300) {
+      late http.Response response;
+      try {
+        response = await _readBoundedResponse(streamedResponse);
+      } on _ResponseTooLarge {
+        if (streamedResponse.statusCode < 200 ||
+            streamedResponse.statusCode >= 300) {
+          throw StorefrontApiException(
+            statusCode: streamedResponse.statusCode,
+            code: 'HTTP_ERROR',
+            message: _safeApiMessage(streamedResponse.statusCode),
+            requestId: _sanitizeRequestId(
+              streamedResponse.headers['x-request-id'],
+            ),
+            retryIdempotencyKey: _ambiguousReplayKey(
+              streamedResponse.statusCode,
+              idempotencyKey,
+            ),
+            method: method,
+            routeTemplate: routeTemplate,
+          );
+        }
+        throw StorefrontDecodingException(
+          method: method,
+          routeTemplate: routeTemplate,
+          retryIdempotencyKey: idempotencyKey,
+        );
+      }
+      final success = response.statusCode >= 200 && response.statusCode < 300;
+      final headerRequestId = _sanitizeRequestId(
+        response.headers['x-request-id'],
+      );
+      Object? parsed;
+      try {
+        parsed = _parseJson(response.body, response.statusCode);
+      } on FormatException {
+        if (success) {
+          rethrow;
+        }
+      }
+      if (!success) {
         final envelope = parsed is Map
             ? parsed.cast<String, Object?>()
             : const <String, Object?>{};
-        final code = envelope['code'];
         throw StorefrontApiException(
           statusCode: response.statusCode,
-          code: code is String ? code : 'HTTP_ERROR',
+          code: _sanitizeErrorCode(envelope['code']) ?? 'HTTP_ERROR',
           message: _safeApiMessage(response.statusCode),
-          requestId: envelope['requestId'] is String
-              ? envelope['requestId']! as String
-              : requestId,
+          requestId:
+              _sanitizeRequestId(envelope['requestId']) ?? headerRequestId,
           details: _sanitizeDetails(envelope['details']),
+          retryIdempotencyKey: _ambiguousReplayKey(
+            response.statusCode,
+            idempotencyKey,
+          ),
           method: method,
           routeTemplate: routeTemplate,
         );
@@ -245,7 +300,7 @@ final class StorefrontTransport {
         return StorefrontTransportResponse<T>(
           data: decoder(parsed),
           etag: response.headers['etag'],
-          requestId: requestId,
+          requestId: headerRequestId,
         );
       } on StorefrontException {
         rethrow;
@@ -253,31 +308,36 @@ final class StorefrontTransport {
         throw StorefrontDecodingException(
           method: method,
           routeTemplate: routeTemplate,
+          retryIdempotencyKey: idempotencyKey,
         );
       }
     } on _Aborted {
-      if (timedOut && !cancelled) {
+      if (abortCause == _AbortCause.timeout) {
         throw StorefrontTimeoutException(
           method: method,
           routeTemplate: routeTemplate,
           timeout: deadline,
+          retryIdempotencyKey: idempotencyKey,
         );
       }
       throw StorefrontRequestCancelledException(
         method: method,
         routeTemplate: routeTemplate,
+        retryIdempotencyKey: idempotencyKey,
       );
     } on http.RequestAbortedException {
-      if (timedOut && !cancelled) {
+      if (abortCause == _AbortCause.timeout) {
         throw StorefrontTimeoutException(
           method: method,
           routeTemplate: routeTemplate,
           timeout: deadline,
+          retryIdempotencyKey: idempotencyKey,
         );
       }
       throw StorefrontRequestCancelledException(
         method: method,
         routeTemplate: routeTemplate,
+        retryIdempotencyKey: idempotencyKey,
       );
     } on StorefrontException {
       rethrow;
@@ -285,20 +345,46 @@ final class StorefrontTransport {
       throw StorefrontDecodingException(
         method: method,
         routeTemplate: routeTemplate,
+        retryIdempotencyKey: idempotencyKey,
       );
     } on http.ClientException {
       throw StorefrontNetworkException(
         method: method,
         routeTemplate: routeTemplate,
+        retryIdempotencyKey: idempotencyKey,
       );
     } catch (_) {
       throw StorefrontNetworkException(
         method: method,
         routeTemplate: routeTemplate,
+        retryIdempotencyKey: idempotencyKey,
       );
     } finally {
       timer.cancel();
     }
+  }
+
+  Future<http.Response> _readBoundedResponse(
+    http.StreamedResponse response,
+  ) async {
+    final bytes = BytesBuilder(copy: false);
+    var length = 0;
+    await for (final chunk in response.stream) {
+      length += chunk.length;
+      if (length > maxResponseBytes) {
+        throw const _ResponseTooLarge();
+      }
+      bytes.add(chunk);
+    }
+    return http.Response.bytes(
+      bytes.takeBytes(),
+      response.statusCode,
+      headers: response.headers,
+      request: response.request,
+      isRedirect: response.isRedirect,
+      persistentConnection: response.persistentConnection,
+      reasonPhrase: response.reasonPhrase,
+    );
   }
 
   Future<void> _applyAuthorization(
@@ -404,21 +490,30 @@ Object? _parseJson(String body, int statusCode) {
 String _safeApiMessage(int statusCode) =>
     'The Storefront API rejected the request with status $statusCode.';
 
+String? _ambiguousReplayKey(int statusCode, String? idempotencyKey) =>
+    idempotencyKey != null && (statusCode == 408 || statusCode >= 500)
+        ? idempotencyKey
+        : null;
+
+String? _sanitizeErrorCode(Object? value) =>
+    value is String && _errorCodePattern.hasMatch(value) ? value : null;
+
+String? _sanitizeRequestId(Object? value) =>
+    value is String && _requestIdPattern.hasMatch(value) ? value : null;
+
 Map<String, Object?>? _sanitizeDetails(Object? value) {
   if (value is! Map) {
     return null;
   }
-  final details = value.cast<String, Object?>();
-  final rawFields = details['fields'];
+  final rawFields = value['fields'];
   if (rawFields is! List) {
     return null;
   }
   final fields = <Map<String, Object?>>[];
   for (final rawField in rawFields) {
     if (rawField is Map) {
-      final field = rawField.cast<String, Object?>();
-      final path = field['path'];
-      if (path is String && path.length <= 128) {
+      final path = rawField['path'];
+      if (path is String && _fieldPathPattern.hasMatch(path)) {
         fields.add({'path': path});
       }
     }
@@ -428,4 +523,10 @@ Map<String, Object?>? _sanitizeDetails(Object? value) {
 
 final class _Aborted implements Exception {
   const _Aborted();
+}
+
+enum _AbortCause { timeout, cancelled }
+
+final class _ResponseTooLarge implements Exception {
+  const _ResponseTooLarge();
 }

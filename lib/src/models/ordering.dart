@@ -1,4 +1,5 @@
 import '../json/json_reader.dart';
+import '../json/request_metadata.dart';
 import 'cart.dart';
 
 /// Origin channel accepted by an ordering-session request.
@@ -31,38 +32,44 @@ enum OrderChannel {
 final class StartOrderingSessionRequest {
   /// Creates a request that may resume [existingCartId].
   StartOrderingSessionRequest({
-    required this.fulfillmentMethod,
+    required String fulfillmentMethod,
     this.existingCartId,
     this.marketplaceId,
     this.channel,
     Map<String, Object?>? metadata,
     this.returnUrl,
-  })  : metadata = metadata == null
-            ? null
-            : freezeJsonMap(metadata, context: 'orderingSession.metadata'),
+  })  : fulfillmentMethod = _validateFulfillmentMethod(fulfillmentMethod),
+        metadata = prepareStorefrontMetadata(
+          metadata,
+          context: 'orderingSession.metadata',
+        ),
         _includeExistingCartId = existingCartId != null {
     _validateReturnUrl(returnUrl);
     _validateMetadata(this.metadata);
+    validateStorefrontPayloadSize(toJson());
   }
 
   /// Creates a request that explicitly asks the server not to resume a cart.
   StartOrderingSessionRequest.fresh({
-    required this.fulfillmentMethod,
+    required String fulfillmentMethod,
     this.marketplaceId,
     this.channel,
     Map<String, Object?>? metadata,
     this.returnUrl,
-  })  : existingCartId = null,
-        metadata = metadata == null
-            ? null
-            : freezeJsonMap(metadata, context: 'orderingSession.metadata'),
+  })  : fulfillmentMethod = _validateFulfillmentMethod(fulfillmentMethod),
+        existingCartId = null,
+        metadata = prepareStorefrontMetadata(
+          metadata,
+          context: 'orderingSession.metadata',
+        ),
         _includeExistingCartId = true {
     _validateReturnUrl(returnUrl);
     _validateMetadata(this.metadata);
+    validateStorefrontPayloadSize(toJson());
   }
 
   /// Requested fulfillment method.
-  final FulfillmentMethod fulfillmentMethod;
+  final String fulfillmentMethod;
 
   /// Existing cart identifier to resume.
   final String? existingCartId;
@@ -83,13 +90,23 @@ final class StartOrderingSessionRequest {
 
   /// Serializes only fields accepted by the ordering-session endpoint.
   Map<String, Object?> toJson() => <String, Object?>{
-        'fulfillmentMethod': fulfillmentMethod.wireValue,
+        'fulfillmentMethod': fulfillmentMethod,
         if (_includeExistingCartId) 'existingCartId': existingCartId,
         if (marketplaceId != null) 'marketplaceId': marketplaceId,
         if (channel != null) 'channel': channel!.wireValue,
         if (metadata != null) 'metadata': metadata,
         if (returnUrl != null) 'returnUrl': returnUrl.toString(),
       };
+}
+
+String _validateFulfillmentMethod(String value) {
+  final trimmed = value.trim();
+  if (trimmed.isEmpty || trimmed.length > 64) {
+    throw ArgumentError(
+      'fulfillmentMethod must contain 1 to 64 non-whitespace characters.',
+    );
+  }
+  return trimmed;
 }
 
 void _validateMetadata(Map<String, Object?>? metadata) {
@@ -132,7 +149,7 @@ final class StartOrderingSessionResult {
   factory StartOrderingSessionResult.fromJson(Map<String, Object?> json) {
     final reader = JsonReader.fromObject(json, context: 'orderingSession');
     return StartOrderingSessionResult(
-      cart: StorefrontCart.fromReader(reader.object('cart')),
+      cart: StorefrontCart.fromJson(reader.object('cart').asMap()),
       cartAccessToken: reader.nullableString('cartAccessToken'),
     );
   }

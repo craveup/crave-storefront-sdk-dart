@@ -15,7 +15,7 @@ Map<String, Object?> fixture(String name) {
 
 void main() {
   group('catalog models', () {
-    test('decodes menus, nullable nutrition fields, and modifiers', () {
+    test('decodes menus, fractional nutrition fields, and modifiers', () {
       final bundle = MenuBundle.fromJson(fixture('catalog'));
       final product = Product.fromJson(fixture('product'));
 
@@ -25,7 +25,7 @@ void main() {
       expect(
         bundle.menus.single.categories.single.products.single.nutrition
             ?.calorieCount,
-        isNull,
+        12.5,
       );
       expect(product.modifiers.single.rule.minimum, 1);
       expect(product.modifiers.single.items.single.id, 'option_01');
@@ -86,6 +86,27 @@ void main() {
       );
     });
 
+    test('requires the server-owned cart item collection', () {
+      for (final invalidItems in <Object?>[null, 'not-a-list']) {
+        final json = fixture('cart')..['items'] = invalidItems;
+        expect(
+          () => StorefrontCart.fromJson(json),
+          throwsA(
+            isA<FormatException>().having(
+              (error) => error.message,
+              'message',
+              contains('cart.items'),
+            ),
+          ),
+        );
+      }
+      final missing = fixture('cart')..remove('items');
+      expect(
+        () => StorefrontCart.fromJson(missing),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
     test('serializes cart updates with request fulfillment spelling', () {
       final request = UpdateCartRequest(
         fulfillmentMethod: FulfillmentMethod.delivery,
@@ -101,6 +122,17 @@ void main() {
         'note': 'Leave at reception',
       });
       expect(request.toJson(), isNot(contains('fulfilmentMethod')));
+    });
+
+    test('supports every cart fulfillment method wire value', () {
+      expect(
+        FulfillmentMethod.robotDelivery.wireValue,
+        'robot_delivery',
+      );
+      expect(
+        FulfillmentMethod.inCourseDelivery.wireValue,
+        'in_course_delivery',
+      );
     });
 
     test('allowlists add-item request fields recursively', () {

@@ -46,7 +46,8 @@ coverage executable while the canonical server OpenAPI is completed.
 
 1. Write failing tests for origin/merchant/location isolation, capability capture, revision parsing,
    mutation headers, stable keys, conflict refresh without retry, claim capability removal, delete
-   cleanup, terminal cleanup, and concurrent ordering-session coalescing.
+   cleanup, terminal cleanup, concurrent ordering-session coalescing, delayed-response cleanup
+   races, and queued timeout/cancellation without late HTTP requests.
 2. Implement the single shared lifecycle owner used by all cart-related clients.
 3. Verify no service duplicates header, storage, ETag, or key logic.
 
@@ -94,8 +95,9 @@ coverage executable while the canonical server OpenAPI is completed.
 **Create:** `.github/workflows/ci.yml`, `.github/workflows/publish.yml`
 **Create:** `tool/verify.sh`, `tool/check_secrets.sh`
 
-1. Add pinned-action CI for Dart 3.4 and stable: format, fatal-info analyze, tests, docs, advisory and
-   outdated review, dry-run package, inventory check, and secret scan.
+1. Add pinned-action CI for Dart 3.4 and stable: format, fatal-info analyze, tests, JavaScript compile
+   and Chrome runtime checks, docs, advisory and outdated review, dry-run package, inventory check,
+   and secret scan.
 2. Add current-stable Flutter consumer verification.
 3. Add tag-only pub.dev OIDC workflow scoped to `contents: read` and `id-token: write`, using the
    protected `pub.dev` environment. It becomes active only after the manual first release and pub.dev

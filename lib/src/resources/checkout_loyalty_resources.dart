@@ -11,10 +11,34 @@ import 'resource_support.dart';
 
 final _loyaltyClaimOrderIdPattern = RegExp(r'^[a-fA-F0-9]{24}$');
 
+/// Creates checkout resources for the package facade.
+CheckoutClient createCheckoutClient(
+  StorefrontTransport transport,
+  CartSessionRuntime cartRuntime,
+) =>
+    CheckoutClient._(transport, cartRuntime);
+
+/// Creates rating resources for the package facade.
+RatingsClient createRatingsClient(
+  StorefrontTransport transport,
+  CartSessionRuntime cartRuntime,
+) =>
+    RatingsClient._(transport, cartRuntime);
+
+/// Creates receipt resources for the package facade.
+ReceiptsClient createReceiptsClient(StorefrontTransport transport) =>
+    ReceiptsClient._(transport);
+
+/// Creates loyalty resources for the package facade.
+LoyaltyClient createLoyaltyClient(
+  StorefrontTransport transport,
+  CartSessionRuntime cartRuntime,
+) =>
+    LoyaltyClient._(transport, cartRuntime);
+
 /// Checkout handoff, payment-intent, and order-result operations.
 final class CheckoutClient {
-  /// Creates checkout resources backed by the shared cart runtime.
-  CheckoutClient(
+  CheckoutClient._(
     StorefrontTransport transport,
     CartSessionRuntime cartRuntime,
   )   : _transport = transport,
@@ -94,64 +118,94 @@ final class CheckoutClient {
     String handoffToken, {
     required StorefrontRequestOptions options,
   }) async {
+    const method = 'POST';
+    const routeTemplate =
+        '/locations/:locationId/carts/:cartId/checkout-handoffs/exchange';
     final idempotencyKey = options.idempotencyKey;
     if (idempotencyKey == null) {
       throw const StorefrontConfigurationException(
         'A caller-stable idempotency key is required for checkout exchange.',
       );
     }
-    final response = await _transport.send<CheckoutExchangeResult>(
-      method: 'POST',
-      pathSegments: [
-        'locations',
-        locationId,
-        'carts',
-        cartId,
-        'checkout-handoffs',
-        'exchange',
-      ],
-      routeTemplate:
-          '/locations/:locationId/carts/:cartId/checkout-handoffs/exchange',
-      authorization: StorefrontAuthorization.checkoutHandoff,
-      checkoutHandoffToken: handoffToken,
-      idempotencyKey: idempotencyKey,
-      body: const <String, Object?>{},
-      decoder: (value) =>
-          CheckoutExchangeResult.fromJson(decodeJsonObject(value)),
-      timeout: options.timeout,
-      cancellationToken: options.cancellationToken,
+    final operation = StorefrontOperationContext(
+      defaultTimeout: _transport.defaultTimeout,
+      method: method,
+      routeTemplate: routeTemplate,
+      options: options,
     );
-    final result = response.data;
-    if (result.merchantSlug != _cartRuntime.merchantSlug ||
-        result.cart.locationId != locationId ||
-        result.cart.id != cartId) {
-      throw const StorefrontDecodingException(
-        method: 'POST',
-        routeTemplate:
-            '/locations/:locationId/carts/:cartId/checkout-handoffs/exchange',
+    Future<CheckoutExchangeResult> exchange() async {
+      final response = await _transport.send<CheckoutExchangeResult>(
+        method: method,
+        pathSegments: [
+          'locations',
+          locationId,
+          'carts',
+          cartId,
+          'checkout-handoffs',
+          'exchange',
+        ],
+        routeTemplate: routeTemplate,
+        authorization: StorefrontAuthorization.checkoutHandoff,
+        checkoutHandoffToken: handoffToken,
+        idempotencyKey: idempotencyKey,
+        body: const <String, Object?>{},
+        decoder: (value) =>
+            CheckoutExchangeResult.fromJson(decodeJsonObject(value)),
+        timeout: operation.remaining,
+        cancellationToken: operation.cancellationToken,
       );
+      final result = response.data;
+      if (result.merchantSlug != _cartRuntime.merchantSlug ||
+          result.cart.locationId != locationId ||
+          result.cart.id != cartId) {
+        throw StorefrontDecodingException(
+          method: method,
+          routeTemplate: routeTemplate,
+          retryIdempotencyKey: idempotencyKey,
+        );
+      }
+      final etagRevision = parseCartRevision(response.etag);
+      if (etagRevision == null || etagRevision != result.cart.revision) {
+        throw StorefrontDecodingException(
+          method: method,
+          routeTemplate: routeTemplate,
+          retryIdempotencyKey: idempotencyKey,
+        );
+      }
+      await operation.waitForSession(
+        _cartRuntime.capture(
+          locationId: locationId,
+          cartId: result.cart.id,
+          accessToken: result.cartAccessToken,
+          revision: etagRevision,
+          expiresAt: result.cart.expiresAt == null
+              ? null
+              : DateTime.tryParse(result.cart.expiresAt!),
+        ),
+        operationMayHaveSucceeded: true,
+        retryIdempotencyKey: idempotencyKey,
+      );
+      return result;
     }
-    await _cartRuntime.capture(
+
+    return _cartRuntime.serializeCartOperation(
       locationId: locationId,
-      cartId: result.cart.id,
-      accessToken: result.cartAccessToken,
-      revision: parseCartRevision(response.etag) ?? result.cart.revision,
-      expiresAt: result.cart.expiresAt == null
-          ? null
-          : DateTime.tryParse(result.cart.expiresAt!),
+      cartId: cartId,
+      waitForPrevious: operation.wait,
+      operation: exchange,
     );
-    return result;
   }
 }
 
 /// Post-checkout customer rating operations.
 final class RatingsClient {
-  /// Creates rating resources backed by the shared cart runtime.
-  RatingsClient(
+  RatingsClient._(
     StorefrontTransport transport,
     CartSessionRuntime cartRuntime,
-  ) : _cartRequests = CartResourceRequests(transport, cartRuntime);
+  )   : _cartRuntime = cartRuntime,
+        _cartRequests = CartResourceRequests(transport, cartRuntime);
 
+  final CartSessionRuntime _cartRuntime;
   final CartResourceRequests _cartRequests;
 
   /// Submits a rating for a cart after its payment succeeds.
@@ -170,14 +224,17 @@ final class RatingsClient {
         body: request.toJson(),
         idempotent: true,
         decoder: (value) => RatingResult.fromJson(decodeJsonObject(value)),
+        afterSuccess: () => _cartRuntime.clear(
+          locationId: locationId,
+          cartId: cartId,
+        ),
         options: options,
       );
 }
 
 /// Capability- or customer-authorized receipt operations.
 final class ReceiptsClient {
-  /// Creates receipt resources.
-  const ReceiptsClient(this._transport);
+  const ReceiptsClient._(this._transport);
 
   final StorefrontTransport _transport;
 
@@ -206,8 +263,7 @@ final class ReceiptsClient {
 
 /// Customer loyalty quote, redemption, ledger, and claim operations.
 final class LoyaltyClient {
-  /// Creates loyalty resources backed by the shared cart runtime.
-  LoyaltyClient(
+  LoyaltyClient._(
     StorefrontTransport transport,
     CartSessionRuntime cartRuntime,
   )   : _transport = transport,
@@ -262,6 +318,13 @@ final class LoyaltyClient {
       persistRevision: true,
       refreshOnConflict: true,
       revisionFallback: (cart) => cart.revision,
+      validateResponse: (cart) => validateCartResponseIdentity(
+        cart,
+        locationId: locationId,
+        cartId: cartId,
+        method: 'POST',
+        routeTemplate: '/locations/:locationId/carts/:cartId/loyalty/redeem',
+      ),
       decoder: (value) => StorefrontCart.fromJson(decodeJsonObject(value)),
       options: options,
     );
@@ -286,6 +349,13 @@ final class LoyaltyClient {
         persistRevision: true,
         refreshOnConflict: true,
         revisionFallback: (cart) => cart.revision,
+        validateResponse: (cart) => validateCartResponseIdentity(
+          cart,
+          locationId: locationId,
+          cartId: cartId,
+          method: 'DELETE',
+          routeTemplate: '/locations/:locationId/carts/:cartId/loyalty/redeem',
+        ),
         decoder: (value) => StorefrontCart.fromJson(decodeJsonObject(value)),
         options: options,
       );

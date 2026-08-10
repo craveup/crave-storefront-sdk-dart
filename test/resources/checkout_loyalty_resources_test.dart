@@ -3,6 +3,12 @@ import 'dart:io';
 
 import 'package:crave_storefront_sdk/crave_storefront_sdk.dart';
 import 'package:crave_storefront_sdk/src/http/transport.dart';
+import 'package:crave_storefront_sdk/src/resources/checkout_loyalty_resources.dart'
+    show
+        createCheckoutClient,
+        createLoyaltyClient,
+        createRatingsClient,
+        createReceiptsClient;
 import 'package:crave_storefront_sdk/src/runtime/cart_session_runtime.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -289,6 +295,7 @@ void main() {
       'cart_01',
       RatingRequest(rating: 5, comment: 'Great tea'),
     );
+    expect(await store.read(_scope()), isNull);
     final guestReceipt = await resources.receipts.get(
       'receipt_01',
       receiptToken: 'receipt-capability',
@@ -512,10 +519,10 @@ void main() {
   );
   return (
     transport: transport,
-    checkout: CheckoutClient(transport, runtime),
-    ratings: RatingsClient(transport, runtime),
-    receipts: ReceiptsClient(transport),
-    loyalty: LoyaltyClient(transport, runtime),
+    checkout: createCheckoutClient(transport, runtime),
+    ratings: createRatingsClient(transport, runtime),
+    receipts: createReceiptsClient(transport),
+    loyalty: createLoyaltyClient(transport, runtime),
   );
 }
 

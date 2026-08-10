@@ -1,4 +1,5 @@
 import '../json/json_reader.dart';
+import '../json/request_metadata.dart';
 
 /// Analytics event accepted by the public Storefront endpoint.
 enum AnalyticsEventType {
@@ -24,9 +25,12 @@ final class AnalyticsEventRequest {
     required this.cartId,
     required this.eventType,
     Map<String, Object?>? metadata,
-  }) : metadata = metadata == null
-            ? null
-            : freezeJsonMap(metadata, context: 'analyticsEvent.metadata');
+  }) : metadata = prepareStorefrontMetadata(
+          metadata,
+          context: 'analyticsEvent.metadata',
+        ) {
+    validateStorefrontPayloadSize(toJson());
+  }
 
   /// Cart referenced by this event.
   final String cartId;

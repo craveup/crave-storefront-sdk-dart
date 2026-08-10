@@ -17,6 +17,9 @@ abstract interface class StorefrontSessionStore {
 /// Flutter production applications should provide an encrypted storage
 /// adapter instead.
 final class InMemoryStorefrontSessionStore implements StorefrontSessionStore {
+  /// Creates empty ephemeral session storage.
+  InMemoryStorefrontSessionStore();
+
   final Map<StorefrontSessionScope, StorefrontCartSession> _sessions = {};
 
   @override
@@ -31,7 +34,13 @@ final class InMemoryStorefrontSessionStore implements StorefrontSessionStore {
         existing.revision > session.revision) {
       return;
     }
-    _sessions[session.scope] = session;
+    final next = existing != null &&
+            existing.cartId == session.cartId &&
+            existing.accessToken == null &&
+            session.accessToken != null
+        ? session.withoutAccessToken()
+        : session;
+    _sessions[session.scope] = next;
   }
 
   @override
