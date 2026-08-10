@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../auth.dart';
 import '../cancellation.dart';
 import '../errors.dart';
 
@@ -73,9 +74,6 @@ final class StorefrontTransportResponse<T> {
   /// Correlation ID returned by the API, when available.
   final String? requestId;
 }
-
-/// Async callback that returns the current customer JWT, if signed in.
-typedef StorefrontCustomerTokenProvider = Future<String?> Function();
 
 /// Internal same-origin JSON transport for reviewed Storefront operations.
 final class StorefrontTransport {
@@ -206,15 +204,17 @@ final class StorefrontTransport {
     if (revision != null) {
       request.headers['if-match'] = revision._headerValue;
     }
-    await _applyAuthorization(
-      request,
-      authorization: authorization,
-      cartToken: cartToken,
-      checkoutHandoffToken: checkoutHandoffToken,
-      receiptToken: receiptToken,
-    );
-
     try {
+      await Future.any<void>([
+        _applyAuthorization(
+          request,
+          authorization: authorization,
+          cartToken: cartToken,
+          checkoutHandoffToken: checkoutHandoffToken,
+          receiptToken: receiptToken,
+        ),
+        abort.future.then<void>((_) => throw const _Aborted()),
+      ]);
       final streamedResponse = await Future.any<http.StreamedResponse>([
         _client.send(request),
         abort.future.then<http.StreamedResponse>((_) => throw const _Aborted()),

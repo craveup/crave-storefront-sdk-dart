@@ -93,6 +93,122 @@ void main() {
       transport.close();
     });
 
+    test('optional customer authorization works with and without a JWT',
+        () async {
+      final captured = <http.Request>[];
+      final token = <String?>[null, 'customer-token'].iterator;
+      final transport = StorefrontTransport(
+        baseUri: Uri.parse('https://api.example.test'),
+        customerTokenProvider: () async {
+          token.moveNext();
+          return token.current;
+        },
+        client: MockClient((request) async {
+          captured.add(request);
+          return http.Response('{}', 200);
+        }),
+      );
+
+      for (var index = 0; index < 2; index += 1) {
+        await transport.send<Map<String, Object?>>(
+          method: 'POST',
+          pathSegments: const ['locations', 'loc', 'ordering-sessions'],
+          routeTemplate: '/locations/:locationId/ordering-sessions',
+          authorization: StorefrontAuthorization.optionalCustomer,
+          decoder: _mapDecoder,
+        );
+      }
+
+      expect(captured[0].headers, isNot(contains('authorization')));
+      expect(captured[1].headers['authorization'], 'Bearer customer-token');
+      transport.close();
+    });
+
+    test('customer authorization fails before sending when no JWT is available',
+        () async {
+      var requestCount = 0;
+      final transport = StorefrontTransport(
+        baseUri: Uri.parse('https://api.example.test'),
+        customerTokenProvider: () async => null,
+        client: MockClient((_) async {
+          requestCount += 1;
+          return http.Response('{}', 200);
+        }),
+      );
+
+      await expectLater(
+        transport.send<Map<String, Object?>>(
+          method: 'GET',
+          pathSegments: const ['customer'],
+          routeTemplate: '/customer',
+          authorization: StorefrontAuthorization.customer,
+          decoder: _mapDecoder,
+        ),
+        throwsA(isA<StorefrontConfigurationException>()),
+      );
+
+      expect(requestCount, 0);
+      transport.close();
+    });
+
+    test('timeout also bounds an unresponsive customer token provider',
+        () async {
+      final never = Completer<String?>();
+      final transport = StorefrontTransport(
+        baseUri: Uri.parse('https://api.example.test'),
+        defaultTimeout: const Duration(milliseconds: 5),
+        customerTokenProvider: () => never.future,
+        client: MockClient((_) async => http.Response('{}', 200)),
+      );
+
+      final pending = transport.send<Map<String, Object?>>(
+        method: 'GET',
+        pathSegments: const ['customer'],
+        routeTemplate: '/customer',
+        authorization: StorefrontAuthorization.customer,
+        decoder: _mapDecoder,
+      );
+      final outcome = await Future.any<Object>([
+        pending
+            .then<Object>((value) => value)
+            .catchError((Object error) => error),
+        Future<Object>.delayed(
+          const Duration(milliseconds: 100),
+          () => 'provider-was-not-bounded',
+        ),
+      ]);
+
+      expect(outcome, isA<StorefrontTimeoutException>());
+      transport.close();
+    });
+
+    test('redacts customer token provider failures', () async {
+      const secret = 'provider-secret-customer-token';
+      final transport = StorefrontTransport(
+        baseUri: Uri.parse('https://api.example.test'),
+        customerTokenProvider: () async => throw StateError(secret),
+        client: MockClient((_) async => http.Response('{}', 200)),
+      );
+
+      await expectLater(
+        transport.send<Map<String, Object?>>(
+          method: 'GET',
+          pathSegments: const ['customer'],
+          routeTemplate: '/customer',
+          authorization: StorefrontAuthorization.customer,
+          decoder: _mapDecoder,
+        ),
+        throwsA(
+          isA<StorefrontNetworkException>().having(
+            (error) => error.toString(),
+            'safe string',
+            isNot(contains(secret)),
+          ),
+        ),
+      );
+      transport.close();
+    });
+
     test('keeps each capability in its dedicated header', () async {
       final captured = <http.Request>[];
       final transport = StorefrontTransport(
