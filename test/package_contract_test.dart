@@ -23,9 +23,11 @@ void main() {
     });
 
     test('constructs a typed client without a private credential', () {
+      Future<String?> tokenProvider() async => null;
       final client = CraveStorefrontClient(
         baseUri: Uri.parse('https://api.example.test'),
         merchantSlug: 'example-merchant',
+        customerTokenProvider: tokenProvider,
       );
 
       expect(client.baseUri, Uri.parse('https://api.example.test'));
