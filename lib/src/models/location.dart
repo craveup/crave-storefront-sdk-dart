@@ -1,4 +1,99 @@
 import '../json/json_reader.dart';
+import 'cart.dart';
+
+/// Current ordering availability for one fulfillment method.
+sealed class OrderingReadiness {
+  const OrderingReadiness({required this.fulfillmentMethod});
+
+  /// Decodes the discriminated ordering-readiness response.
+  factory OrderingReadiness.fromJson(Map<String, Object?> json) {
+    final reader = JsonReader.fromObject(json, context: 'orderingReadiness');
+    final fulfillmentMethod = _decodeFulfillmentMethod(
+      reader.string('fulfillmentMethod'),
+    );
+    if (!reader.boolean('ready')) {
+      return OrderingUnavailable(
+        fulfillmentMethod: fulfillmentMethod,
+        reason: reader.string('reason'),
+      );
+    }
+    return OrderingReady(
+      fulfillmentMethod: fulfillmentMethod,
+      pickupType: _decodeOrderTiming(reader.string('pickupType')),
+      orderDate: reader.string('orderDate'),
+      orderTime: reader.string('orderTime'),
+      estimatedReadyTime: reader.nullableTimestamp('estimatedReadyTime'),
+    );
+  }
+
+  /// Whether ordering can start now with the returned order timing.
+  bool get ready;
+
+  /// Fulfillment method evaluated by the Storefront API.
+  final FulfillmentMethod fulfillmentMethod;
+}
+
+/// Ordering is unavailable for the requested fulfillment method.
+final class OrderingUnavailable extends OrderingReadiness {
+  /// Creates an immutable unavailable response.
+  const OrderingUnavailable({
+    required super.fulfillmentMethod,
+    required this.reason,
+  });
+
+  @override
+  bool get ready => false;
+
+  /// Customer-safe reason returned by the Storefront API.
+  final String reason;
+}
+
+/// Ordering is available with an authoritative date and time.
+final class OrderingReady extends OrderingReadiness {
+  /// Creates an immutable ready response.
+  const OrderingReady({
+    required super.fulfillmentMethod,
+    required this.pickupType,
+    required this.orderDate,
+    required this.orderTime,
+    this.estimatedReadyTime,
+  });
+
+  @override
+  bool get ready => true;
+
+  /// Whether the order is immediate or scheduled.
+  final OrderTiming pickupType;
+
+  /// Restaurant-local order date wire value.
+  final String orderDate;
+
+  /// Restaurant-local order time wire value.
+  final String orderTime;
+
+  /// Optional ISO-8601 estimated-ready timestamp.
+  final String? estimatedReadyTime;
+}
+
+FulfillmentMethod _decodeFulfillmentMethod(String value) => switch (value) {
+      'takeout' => FulfillmentMethod.takeout,
+      'table_side' => FulfillmentMethod.tableSide,
+      'room_service' => FulfillmentMethod.roomService,
+      'delivery' => FulfillmentMethod.delivery,
+      _ => throw const FormatException(
+          'Invalid JSON at orderingReadiness.fulfillmentMethod: '
+          'expected a supported fulfillment method.',
+        ),
+    };
+
+OrderTiming _decodeOrderTiming(String value) => switch (value) {
+      'ASAP' => OrderTiming.asap,
+      'LATER' => OrderTiming.scheduled,
+      _ => throw const FormatException(
+          'Invalid JSON at orderingReadiness.pickupType: '
+          'expected ASAP or LATER.',
+        ),
+    };
 
 /// Partially configured postal data published for a Storefront location.
 final class PublishedAddress {

@@ -9,8 +9,15 @@ tenant configuration, authorization, cart capabilities, revisions, idempotency, 
 safe failure decoding behind one reviewed client surface. It has no Flutter or native runtime
 dependency.
 
-> `0.1.x` is a preview of the public contract. Pin a compatible version and review the
-> [changelog](CHANGELOG.md) before upgrading.
+> `0.x` is a pre-1.0 public contract. Pin the exact version and review the
+> [changelog](CHANGELOG.md) before upgrading between minor releases.
+
+## Choose the SDK for your platform
+
+This package and the TypeScript [`@craveup/storefront-sdk`](https://www.npmjs.com/package/@craveup/storefront-sdk)
+use the same Storefront API contract and security model. Use this Dart package for Flutter mobile,
+web, and desktop applications. Use the TypeScript package for browsers, Next.js, Node.js, MCP, and
+React Native/Expo applications. Neither package embeds a storefront UI.
 
 ## Requirements
 
@@ -20,14 +27,25 @@ dependency.
 
 ## Install
 
-Add the released preview to your application:
+Add the exact release to your application:
 
 ```yaml
 dependencies:
-  crave_storefront_sdk: 0.1.0
+  crave_storefront_sdk: 0.2.0
 ```
 
 Then run `flutter pub get` (or `dart pub get` for a Dart package).
+
+## Environments
+
+Use the production API origin `https://api.craveup.com` only in production builds. Use the exact
+sandbox API origin supplied for your account in sandbox builds, and an exact loopback origin for
+local development. Production and sandbox are separate deployments with separate environment
+variables, credentials, and data.
+
+Create a separate client and storage namespace for every API origin. Do not add a runtime
+environment switch to a production app or reuse carts, customer sessions, or receipt capabilities
+across environments.
 
 ## Quick start
 
@@ -43,7 +61,7 @@ CraveStorefrontClient createStorefrontClient({
   required StorefrontCustomerTokenProvider currentCustomerJwt,
 }) {
   return CraveStorefrontClient(
-    baseUri: Uri.parse('https://api.example.com'),
+    baseUri: Uri.parse('https://api.craveup.com'),
     merchantSlug: 'example-merchant',
     sessionStore: secureSessionStore,
     customerTokenProvider: currentCustomerJwt,
@@ -59,6 +77,13 @@ Future<OrderingBootstrap> browseAndStartTakeout(
   CraveStorefrontClient client,
   String locationId,
 ) async {
+  final readiness = await client.locations.getOrderingReadiness(
+    locationId,
+    fulfillmentMethod: FulfillmentMethod.takeout,
+  );
+  if (readiness case OrderingUnavailable(:final reason)) {
+    throw StateError(reason);
+  }
   final menu = await client.menus.getForLocation(locationId, menuOnly: true);
   final orderingSession = await client.orderingSessions.start(
     locationId,
@@ -88,7 +113,7 @@ behavior implemented inside that client, and your application remains responsibl
 
 | Property | Responsibility |
 | --- | --- |
-| `merchants`, `locations` | Merchant identity, location discovery, and distance |
+| `merchants`, `locations` | Merchant identity, location discovery, distance, order times, and readiness |
 | `menus`, `products` | Catalog, categories, products, and modifier choices |
 | `orderingSessions`, `carts` | Ordering bootstrap and cart lifecycle |
 | `customers` | Identity, orders, addresses, and saved payment references |
@@ -99,6 +124,10 @@ behavior implemented inside that client, and your application remains responsibl
 Only reviewed Storefront operations are available. Request routes and protected headers are owned
 by the SDK so application code cannot accidentally send credentials or capabilities to an
 unrelated origin.
+
+`locations.getOrderingReadiness()` is an anonymous, side-effect-free GET that defaults to takeout.
+Call it before displaying an ordering action. It returns `OrderingReady` with the authoritative
+timing or `OrderingUnavailable` with a customer-safe reason; it never creates a cart.
 
 ## Session storage and identity
 
@@ -217,6 +246,13 @@ Flutter storefront application belong in the consuming app. A small compile fixt
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the test-first workflow and release gates. Public API
 changes are durable, so open an issue before introducing or renaming one.
+
+## Documentation and support
+
+- Read the [Dart and Flutter Storefront SDK guide](https://docs.craveup.com/getting-started/flutter-storefront-sdk).
+- Follow the [Flutter quickstart](https://docs.craveup.com/quickstarts/flutter).
+- Report package issues in the [GitHub repository](https://github.com/craveup/crave-storefront-sdk-dart/issues).
+- Email [hello@craveup.com](mailto:hello@craveup.com) for Crave account or API-origin support.
 
 ## License
 

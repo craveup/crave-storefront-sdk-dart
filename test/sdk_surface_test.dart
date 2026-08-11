@@ -15,6 +15,7 @@ void main() {
       'locations.get': client.locations.get,
       'locations.calculateDistance': client.locations.calculateDistance,
       'locations.listTimeIntervals': client.locations.listTimeIntervals,
+      'locations.getOrderingReadiness': client.locations.getOrderingReadiness,
       'locations.getGratuity': client.locations.getGratuity,
       'checkout.createPaymentIntent': client.checkout.createPaymentIntent,
       'checkout.getOrderResult': client.checkout.getOrderResult,
@@ -71,7 +72,7 @@ void main() {
         .toSet();
 
     expect(implemented.keys.toSet(), declared);
-    expect(implemented, hasLength(49));
+    expect(implemented, hasLength(50));
     client.close();
   });
 }

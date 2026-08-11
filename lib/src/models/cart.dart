@@ -14,13 +14,7 @@ enum FulfillmentMethod {
   roomService('room_service'),
 
   /// Delivery to an address.
-  delivery('delivery'),
-
-  /// Delivery by a restaurant-operated robot.
-  robotDelivery('robot_delivery'),
-
-  /// In-course service within a venue.
-  inCourseDelivery('in_course_delivery');
+  delivery('delivery');
 
   const FulfillmentMethod(this.wireValue);
 

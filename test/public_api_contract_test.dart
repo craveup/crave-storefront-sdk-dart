@@ -127,6 +127,7 @@ const _readerDecodedModels = <String>{
   'ModifierRule',
   'Nutrition',
   'OrderDay',
+  'OrderingReadiness',
   'PublicOrderDeliveryInfo',
   'PublicOrderDetail',
   'PublicOrderItem',

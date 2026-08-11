@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crave_storefront_sdk/src/models/cart.dart';
 import 'package:crave_storefront_sdk/src/models/location.dart';
 import 'package:crave_storefront_sdk/src/models/merchant.dart';
 import 'package:test/test.dart';
@@ -87,6 +88,52 @@ void main() {
 
       expect(failure, isA<ArgumentError>());
       expect(failure.toString(), isNot(contains('$rejected')));
+    });
+
+    test('decodes both ordering readiness response variants', () {
+      final unavailable = OrderingReadiness.fromJson(<String, Object?>{
+        'ready': false,
+        'fulfillmentMethod': 'delivery',
+        'reason': 'Delivery is currently unavailable.',
+      });
+      final ready = OrderingReadiness.fromJson(<String, Object?>{
+        'ready': true,
+        'fulfillmentMethod': 'takeout',
+        'pickupType': 'ASAP',
+        'orderDate': '2026-08-11',
+        'orderTime': '12:15',
+        'estimatedReadyTime': '2026-08-11T07:15:00Z',
+      });
+
+      expect(unavailable, isA<OrderingUnavailable>());
+      expect(unavailable.fulfillmentMethod, FulfillmentMethod.delivery);
+      expect((unavailable as OrderingUnavailable).reason,
+          'Delivery is currently unavailable.');
+      expect(ready, isA<OrderingReady>());
+      expect(ready.fulfillmentMethod, FulfillmentMethod.takeout);
+      expect((ready as OrderingReady).pickupType, OrderTiming.asap);
+      expect(ready.orderDate, '2026-08-11');
+      expect(ready.orderTime, '12:15');
+      expect(ready.estimatedReadyTime, '2026-08-11T07:15:00Z');
+    });
+
+    test('rejects unknown ordering readiness enum values safely', () {
+      const rejected = 'secret_new_fulfillment';
+
+      expect(
+        () => OrderingReadiness.fromJson(<String, Object?>{
+          'ready': false,
+          'fulfillmentMethod': rejected,
+          'reason': 'Unavailable.',
+        }),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            isNot(contains(rejected)),
+          ),
+        ),
+      );
     });
   });
 }

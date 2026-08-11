@@ -1,5 +1,6 @@
 import '../errors.dart';
 import '../http/transport.dart';
+import '../models/cart.dart';
 import '../models/catalog.dart';
 import '../models/location.dart';
 import '../models/merchant.dart';
@@ -100,6 +101,25 @@ final class LocationsClient {
       pathSegments: ['locations', locationId, 'time-intervals'],
       routeTemplate: '/locations/:locationId/time-intervals',
       decoder: (value) => OrderTimes.fromJson(decodeJsonObject(value)),
+      timeout: request.timeout,
+      cancellationToken: request.cancellationToken,
+    );
+    return response.data;
+  }
+
+  /// Checks ordering availability without creating a cart.
+  Future<OrderingReadiness> getOrderingReadiness(
+    String locationId, {
+    FulfillmentMethod fulfillmentMethod = FulfillmentMethod.takeout,
+    StorefrontRequestOptions? options,
+  }) async {
+    final request = ResourceRequestOptions(options);
+    final response = await _transport.send<OrderingReadiness>(
+      method: 'GET',
+      pathSegments: ['locations', locationId, 'ordering-readiness'],
+      routeTemplate: '/locations/:locationId/ordering-readiness',
+      query: {'fulfillmentMethod': fulfillmentMethod.wireValue},
+      decoder: (value) => OrderingReadiness.fromJson(decodeJsonObject(value)),
       timeout: request.timeout,
       cancellationToken: request.cancellationToken,
     );

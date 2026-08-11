@@ -124,14 +124,10 @@ void main() {
       expect(request.toJson(), isNot(contains('fulfilmentMethod')));
     });
 
-    test('supports every cart fulfillment method wire value', () {
+    test('exposes only Storefront request fulfillment methods', () {
       expect(
-        FulfillmentMethod.robotDelivery.wireValue,
-        'robot_delivery',
-      );
-      expect(
-        FulfillmentMethod.inCourseDelivery.wireValue,
-        'in_course_delivery',
+        FulfillmentMethod.values.map((value) => value.wireValue),
+        <String>['takeout', 'table_side', 'room_service', 'delivery'],
       );
     });
 

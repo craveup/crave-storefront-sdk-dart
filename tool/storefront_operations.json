@@ -3,7 +3,7 @@
   "basePath": "/api/v1/storefront",
   "source": {
     "repository": "https://github.com/craveup/craveup-turborepo",
-    "commit": "7fb18e9918f2181d426a73762cd97f3deb7d5418"
+    "commit": "92be01efab37f4c0b59fa717438c734497414e5e"
   },
   "operations": [
     {
@@ -27,7 +27,7 @@
       "sdkMethod": "locations.calculateDistance"
     },
     {
-      "operationId": "storefrontListLocationTimeIntervals",
+      "operationId": "storefrontGetLocationOrderTimes",
       "method": "GET",
       "path": "/api/v1/storefront/locations/:locationId/time-intervals",
       "auth": "public",
@@ -35,6 +35,16 @@
       "revision": "none",
       "etag": false,
       "sdkMethod": "locations.listTimeIntervals"
+    },
+    {
+      "operationId": "storefrontGetOrderingReadiness",
+      "method": "GET",
+      "path": "/api/v1/storefront/locations/:locationId/ordering-readiness",
+      "auth": "public",
+      "idempotency": false,
+      "revision": "none",
+      "etag": false,
+      "sdkMethod": "locations.getOrderingReadiness"
     },
     {
       "operationId": "storefrontGetLocationGratuity",
@@ -47,7 +57,7 @@
       "sdkMethod": "locations.getGratuity"
     },
     {
-      "operationId": "storefrontOpenLocationRedirect",
+      "operationId": "storefrontRedirectToLocation",
       "method": "GET",
       "path": "/api/v1/storefront/locations/:locationId/redirect",
       "auth": "public",
@@ -58,7 +68,7 @@
       "exclusionReason": "Browser navigation redirect; the typed JSON SDK does not follow cross-origin navigation responses."
     },
     {
-      "operationId": "storefrontCreateCartPaymentIntent",
+      "operationId": "storefrontCreatePaymentIntent",
       "method": "POST",
       "path": "/api/v1/storefront/locations/:locationId/carts/:cartId/payment-intent",
       "auth": "cart",
@@ -68,7 +78,7 @@
       "sdkMethod": "checkout.createPaymentIntent"
     },
     {
-      "operationId": "storefrontGetCartOrderResult",
+      "operationId": "storefrontGetOrderResult",
       "method": "GET",
       "path": "/api/v1/storefront/locations/:locationId/carts/:cartId/order-result",
       "auth": "cart",
@@ -78,7 +88,7 @@
       "sdkMethod": "checkout.getOrderResult"
     },
     {
-      "operationId": "storefrontSubmitCartRating",
+      "operationId": "storefrontSubmitOrderRating",
       "method": "POST",
       "path": "/api/v1/storefront/locations/:locationId/carts/:cartId/rating",
       "auth": "cart",
@@ -88,7 +98,7 @@
       "sdkMethod": "ratings.submit"
     },
     {
-      "operationId": "storefrontGetLocationMenus",
+      "operationId": "storefrontListMenus",
       "method": "GET",
       "path": "/api/v1/storefront/locations/:locationId/menus",
       "auth": "public",
@@ -98,7 +108,7 @@
       "sdkMethod": "menus.getForLocation"
     },
     {
-      "operationId": "storefrontGetLocationProduct",
+      "operationId": "storefrontGetProduct",
       "method": "GET",
       "path": "/api/v1/storefront/locations/:locationId/products/:productId",
       "auth": "public",
@@ -128,7 +138,7 @@
       "sdkMethod": "orderingSessions.start"
     },
     {
-      "operationId": "storefrontSubmitAnalyticsEvent",
+      "operationId": "storefrontTrackAnalyticsEvent",
       "method": "POST",
       "path": "/api/v1/storefront/locations/:locationId/analytics-events",
       "auth": "cart",
@@ -168,7 +178,7 @@
       "sdkMethod": "checkout.exchangeHandoff"
     },
     {
-      "operationId": "storefrontListCartRecommendedProducts",
+      "operationId": "storefrontListCartRecommendations",
       "method": "GET",
       "path": "/api/v1/storefront/locations/:locationId/carts/:cartId/products",
       "auth": "cart",
@@ -198,7 +208,7 @@
       "sdkMethod": "carts.delete"
     },
     {
-      "operationId": "storefrontValidateCartForCheckout",
+      "operationId": "storefrontValidateAndUpdateCartCustomer",
       "method": "PUT",
       "path": "/api/v1/storefront/locations/:locationId/carts/:cartId/validate-and-update",
       "auth": "cart",
@@ -278,7 +288,7 @@
       "sdkMethod": "carts.removeDiscount"
     },
     {
-      "operationId": "storefrontClaimCart",
+      "operationId": "storefrontClaimGuestCart",
       "method": "POST",
       "path": "/api/v1/storefront/locations/:locationId/carts/:cartId/claim",
       "auth": "cartAndCustomer",
@@ -358,7 +368,7 @@
       "sdkMethod": "loyalty.getLedger"
     },
     {
-      "operationId": "storefrontSubmitCustomerLoyaltyClaim",
+      "operationId": "storefrontSubmitLoyaltyClaim",
       "method": "POST",
       "path": "/api/v1/storefront/customer/loyalty/claims",
       "auth": "customer",
@@ -368,7 +378,7 @@
       "sdkMethod": "loyalty.submitClaim"
     },
     {
-      "operationId": "storefrontListCustomerLoyaltyClaims",
+      "operationId": "storefrontListLoyaltyClaims",
       "method": "GET",
       "path": "/api/v1/storefront/customer/loyalty/claims",
       "auth": "customer",
@@ -378,7 +388,7 @@
       "sdkMethod": "loyalty.listClaims"
     },
     {
-      "operationId": "storefrontRequestCustomerLogin",
+      "operationId": "storefrontStartCustomerLogin",
       "method": "POST",
       "path": "/api/v1/storefront/customer/auth/login",
       "auth": "public",
@@ -468,7 +478,7 @@
       "sdkMethod": "customers.deleteAddress"
     },
     {
-      "operationId": "storefrontListCustomerSavedPayments",
+      "operationId": "storefrontListSavedPayments",
       "method": "GET",
       "path": "/api/v1/storefront/customer/saved-payments",
       "auth": "customer",
@@ -478,7 +488,7 @@
       "sdkMethod": "customers.listSavedPayments"
     },
     {
-      "operationId": "storefrontDeleteCustomerSavedPayment",
+      "operationId": "storefrontDeleteSavedPayment",
       "method": "DELETE",
       "path": "/api/v1/storefront/customer/saved-payments/:paymentId",
       "auth": "customer",

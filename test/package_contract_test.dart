@@ -15,6 +15,13 @@ void main() {
           .toList();
 
       expect(pubspec, contains('name: crave_storefront_sdk'));
+      expect(pubspec, contains('version: 0.2.0'));
+      expect(
+        pubspec,
+        contains(
+          'documentation: https://docs.craveup.com/getting-started/flutter-storefront-sdk',
+        ),
+      );
       expect(pubspec, contains('sdk: ">=3.4.0 <4.0.0"'));
       expect(pubspec, isNot(contains('sdk: flutter')));
       expect(pubspec, isNot(contains('path:')));
