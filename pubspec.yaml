@@ -1,10 +1,10 @@
 name: crave_storefront_sdk
 description: A lightweight, type-safe Dart client for the Crave Storefront API, designed for Flutter.
-version: 0.1.0
+version: 0.2.0
 homepage: https://www.craveup.com
 repository: https://github.com/craveup/crave-storefront-sdk-dart
 issue_tracker: https://github.com/craveup/crave-storefront-sdk-dart/issues
-documentation: https://github.com/craveup/crave-storefront-sdk-dart#readme
+documentation: https://docs.craveup.com/getting-started/flutter-storefront-sdk
 topics:
   - flutter
   - dart

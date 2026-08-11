@@ -28,12 +28,20 @@ void main() {
       expect(releaseVerification.existsSync(), isTrue);
     });
 
-    test('pins the preview and configures tenant identity explicitly', () {
+    test('pins the release and configures environment and tenant explicitly',
+        () {
       final contents = readme.readAsStringSync();
 
-      expect(contents, contains('crave_storefront_sdk: 0.1.0'));
-      expect(contents, contains("Uri.parse('https://api.example.com')"));
+      expect(contents, contains('crave_storefront_sdk: 0.2.0'));
+      expect(contents, contains("Uri.parse('https://api.craveup.com')"));
       expect(contents, contains("merchantSlug: 'example-merchant'"));
+      expect(contents.toLowerCase(), contains('sandbox'));
+      expect(contents.toLowerCase(), contains('separate deployments'));
+      expect(
+        contents.toLowerCase(),
+        contains(RegExp(r'runtime\s+environment switch')),
+      );
+      expect(contents, contains('@craveup/storefront-sdk'));
       expect(contents, isNot(contains('crave_storefront_sdk: any')));
       expect(contents, isNot(contains('crave_storefront_sdk: latest')));
       expect(contents, isNot(contains('git:')));
@@ -69,6 +77,7 @@ void main() {
       final exampleContents = example.readAsStringSync();
 
       for (final contents in [readmeContents, exampleContents]) {
+        expect(contents, contains('client.locations.getOrderingReadiness'));
         expect(contents, contains('client.menus.getForLocation'));
         expect(contents, contains('client.orderingSessions.start'));
         expect(contents, contains('StartOrderingSessionRequest.fresh'));
@@ -80,6 +89,15 @@ void main() {
         expect(contents,
             contains('return (menu: menu, orderingSession: orderingSession)'));
       }
+    });
+
+    test('records the 0.2.0 contract changes for pub.dev consumers', () {
+      final contents = changelog.readAsStringSync();
+
+      expect(contents, contains('## 0.2.0'));
+      expect(contents, contains('getOrderingReadiness'));
+      expect(contents, contains('FulfillmentMethod'));
+      expect(contents, contains('0.1.0'));
     });
 
     test('explains ambiguous replays and injected-client trust', () {
@@ -116,10 +134,10 @@ void main() {
       expect(publicGuidance, isNot(contains('/api/v1/storefront')));
     });
 
-    test('example is placeholder-only and has no embedded credential', () {
+    test('example uses the canonical public origin and has no credential', () {
       final contents = example.readAsStringSync();
 
-      expect(contents, contains("Uri.parse('https://api.example.com')"));
+      expect(contents, contains("Uri.parse('https://api.craveup.com')"));
       expect(contents, contains("merchantSlug: 'example-merchant'"));
       expect(contents,
           isNot(contains(RegExp(r'Bearer\s+', caseSensitive: false))));

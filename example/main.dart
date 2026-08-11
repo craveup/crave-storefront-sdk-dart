@@ -6,7 +6,7 @@ CraveStorefrontClient createStorefrontClient({
   required StorefrontCustomerTokenProvider customerJwtProvider,
 }) {
   return CraveStorefrontClient(
-    baseUri: Uri.parse('https://api.example.com'),
+    baseUri: Uri.parse('https://api.craveup.com'),
     merchantSlug: 'example-merchant',
     sessionStore: secureSessionStore,
     customerTokenProvider: customerJwtProvider,
@@ -24,6 +24,13 @@ Future<OrderingBootstrap> browseAndStartTakeout(
   CraveStorefrontClient client,
   String locationId,
 ) async {
+  final readiness = await client.locations.getOrderingReadiness(
+    locationId,
+    fulfillmentMethod: FulfillmentMethod.takeout,
+  );
+  if (readiness case OrderingUnavailable(:final reason)) {
+    throw StateError(reason);
+  }
   final menu = await client.menus.getForLocation(locationId, menuOnly: true);
   final orderingSession = await client.orderingSessions.start(
     locationId,

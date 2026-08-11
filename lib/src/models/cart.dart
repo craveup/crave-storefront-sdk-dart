@@ -2,7 +2,10 @@ import '../json/json_reader.dart';
 import 'catalog.dart';
 import 'common.dart';
 
-/// Fulfillment method accepted by cart update requests.
+/// Fulfillment method values published by the SDK.
+///
+/// Check [isStorefrontRequestSupported] before using a legacy value in a
+/// current Storefront request.
 enum FulfillmentMethod {
   /// Customer pickup or takeout.
   takeout('takeout'),
@@ -16,16 +19,26 @@ enum FulfillmentMethod {
   /// Delivery to an address.
   delivery('delivery'),
 
-  /// Delivery by a restaurant-operated robot.
+  /// Legacy robot-delivery value retained for source compatibility.
+  @Deprecated('Not accepted by current public Storefront request schemas.')
   robotDelivery('robot_delivery'),
 
-  /// In-course service within a venue.
+  /// Legacy in-course-delivery value retained for source compatibility.
+  @Deprecated('Not accepted by current public Storefront request schemas.')
   inCourseDelivery('in_course_delivery');
 
   const FulfillmentMethod(this.wireValue);
 
   /// Value sent to the Storefront API.
   final String wireValue;
+
+  /// Whether current public Storefront request schemas accept this value.
+  bool get isStorefrontRequestSupported => const <String>{
+        'takeout',
+        'table_side',
+        'room_service',
+        'delivery',
+      }.contains(wireValue);
 }
 
 /// Requested order timing.
@@ -734,13 +747,20 @@ final class UpdateCartRequest {
   final String? note;
 
   /// Serializes only fields accepted by the cart update endpoint.
-  Map<String, Object?> toJson() => <String, Object?>{
-        if (fulfillmentMethod != null)
-          'fulfillmentMethod': fulfillmentMethod!.wireValue,
-        if (pickupType != null) 'pickupType': pickupType!.wireValue,
-        if (orderTime != null) 'orderTime': orderTime,
-        if (note != null) 'note': note,
-      };
+  Map<String, Object?> toJson() {
+    final method = fulfillmentMethod;
+    if (method != null && !method.isStorefrontRequestSupported) {
+      throw ArgumentError(
+        'fulfillmentMethod must be accepted by the cart update route.',
+      );
+    }
+    return <String, Object?>{
+      if (method != null) 'fulfillmentMethod': method.wireValue,
+      if (pickupType != null) 'pickupType': pickupType!.wireValue,
+      if (orderTime != null) 'orderTime': orderTime,
+      if (note != null) 'note': note,
+    };
+  }
 }
 
 /// Contact details used to validate a cart before checkout.

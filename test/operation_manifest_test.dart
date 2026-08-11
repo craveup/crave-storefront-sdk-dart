@@ -23,10 +23,10 @@ void main() {
         manifest['source'],
         containsPair(
           'commit',
-          '7fb18e9918f2181d426a73762cd97f3deb7d5418',
+          '92be01efab37f4c0b59fa717438c734497414e5e',
         ),
       );
-      expect(operations, hasLength(50));
+      expect(operations, hasLength(51));
 
       final operationIds = operations
           .map((operation) => operation['operationId']! as String)
@@ -37,11 +37,11 @@ void main() {
           )
           .toSet();
 
-      expect(operationIds, hasLength(50),
+      expect(operationIds, hasLength(51),
           reason: 'Operation IDs must be unique.');
       expect(
         methodPaths,
-        hasLength(50),
+        hasLength(51),
         reason: 'Every HTTP method and path pair must be unique.',
       );
     });
@@ -88,7 +88,7 @@ void main() {
       }
     });
 
-    test('exposes 49 typed JSON operations and excludes only the redirect', () {
+    test('exposes 50 typed JSON operations and excludes only the redirect', () {
       final typedJson = operations
           .where((operation) => operation['sdkMethod'] is String)
           .toList();
@@ -99,10 +99,10 @@ void main() {
           .map((operation) => operation['sdkMethod']! as String)
           .toSet();
 
-      expect(typedJson, hasLength(49));
+      expect(typedJson, hasLength(50));
       expect(
         sdkMethods,
-        hasLength(49),
+        hasLength(50),
         reason: 'Every typed operation must have one unique public SDK method.',
       );
       expect(excluded, hasLength(1));
