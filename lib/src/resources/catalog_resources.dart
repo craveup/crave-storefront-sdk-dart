@@ -113,6 +113,11 @@ final class LocationsClient {
     FulfillmentMethod fulfillmentMethod = FulfillmentMethod.takeout,
     StorefrontRequestOptions? options,
   }) async {
+    if (!fulfillmentMethod.isStorefrontRequestSupported) {
+      throw ArgumentError(
+        'fulfillmentMethod must be accepted by the ordering-readiness route.',
+      );
+    }
     final request = ResourceRequestOptions(options);
     final response = await _transport.send<OrderingReadiness>(
       method: 'GET',

@@ -124,10 +124,36 @@ void main() {
       expect(request.toJson(), isNot(contains('fulfilmentMethod')));
     });
 
-    test('exposes only Storefront request fulfillment methods', () {
+    test('preserves published fulfillment methods for source compatibility',
+        () {
       expect(
         FulfillmentMethod.values.map((value) => value.wireValue),
-        <String>['takeout', 'table_side', 'room_service', 'delivery'],
+        <String>[
+          'takeout',
+          'table_side',
+          'room_service',
+          'delivery',
+          'robot_delivery',
+          'in_course_delivery',
+        ],
+      );
+    });
+
+    test('rejects deprecated fulfillment methods in current cart requests', () {
+      final unsupported = FulfillmentMethod.values.firstWhere(
+        (value) => value.wireValue == 'in_course_delivery',
+      );
+
+      expect(unsupported.isStorefrontRequestSupported, isFalse);
+      expect(
+        () => UpdateCartRequest(fulfillmentMethod: unsupported).toJson(),
+        throwsA(
+          isA<ArgumentError>().having(
+            (error) => error.message,
+            'message',
+            isNot(contains(unsupported.wireValue)),
+          ),
+        ),
       );
     });
 

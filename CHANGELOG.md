@@ -7,8 +7,9 @@ All notable changes to this package are documented here. This project follows
 
 - Add anonymous `locations.getOrderingReadiness()` with sealed `OrderingReady` and
   `OrderingUnavailable` response models.
-- Align `FulfillmentMethod` with the four values accepted by Storefront requests: takeout,
-  table-side, room-service, and delivery.
+- Limit ordering-readiness requests to the four accepted `FulfillmentMethod` values: takeout,
+  table-side, room-service, and delivery. The previously published robot-delivery and
+  in-course-delivery enum cases remain as deprecated source-compatible values.
 - Synchronize the reviewed operation manifest with all 51 Storefront routes and current operation
   identifiers; 50 JSON operations are exposed through typed SDK methods and the navigation-only
   redirect remains intentionally excluded.

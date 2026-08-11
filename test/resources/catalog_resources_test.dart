@@ -155,6 +155,38 @@ void main() {
     client.close();
   });
 
+  test('readiness rejects unsupported published fulfillment methods locally',
+      () async {
+    var requestCount = 0;
+    final client = CraveStorefrontClient(
+      baseUri: Uri.parse('https://api.example.test'),
+      merchantSlug: 'example-merchant',
+      httpClient: MockClient((_) async {
+        requestCount += 1;
+        return http.Response('{}', 200);
+      }),
+    );
+    final unsupported = FulfillmentMethod.values.firstWhere(
+      (value) => value.wireValue == 'robot_delivery',
+    );
+
+    await expectLater(
+      client.locations.getOrderingReadiness(
+        'location_01',
+        fulfillmentMethod: unsupported,
+      ),
+      throwsA(
+        isA<ArgumentError>().having(
+          (error) => error.message,
+          'message',
+          isNot(contains(unsupported.wireValue)),
+        ),
+      ),
+    );
+    expect(requestCount, 0);
+    client.close();
+  });
+
   test('menu requests reject incomplete scheduling inputs locally', () async {
     final client = CraveStorefrontClient(
       baseUri: Uri.parse('https://api.example.test'),
